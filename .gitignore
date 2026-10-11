@@ -1,0 +1,9 @@
+# Build artifacts — kept locally as an archive, not committed.
+/build/
+
+# Dependencies / OS / editor noise
+node_modules/
+.DS_Store
+*.log
+.idea/
+.vscode/

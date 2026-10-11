@@ -1,0 +1,129 @@
+/* AI Article Writer — admin screens */
+
+.laa-wrap .laa-panel {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	padding: 12px 20px 20px;
+	margin: 20px 0;
+	max-width: 1100px;
+}
+
+.laa-wrap .laa-panel h2 {
+	margin-top: 8px;
+}
+
+.laa-wrap .laa-command {
+	width: 100%;
+	max-width: 900px;
+	height: 2.6em;
+	font-family: Consolas, Monaco, monospace;
+}
+
+/* queue table */
+
+.laa-angle {
+	color: #646970;
+	font-size: 12px;
+	margin-top: 3px;
+	line-height: 1.4;
+}
+
+.laa-error {
+	color: #b32d2e;
+	font-size: 12px;
+	margin-top: 3px;
+	line-height: 1.4;
+}
+
+.laa-status {
+	display: inline-block;
+	padding: 1px 8px;
+	border-radius: 9px;
+	font-size: 12px;
+	line-height: 1.8;
+	background: #f0f0f1;
+	color: #3c434a;
+	white-space: nowrap;
+}
+
+.laa-status-approved { background: #d5f5e3; color: #1f6b3f; }
+.laa-status-pending  { background: #fff3cd; color: #7a5b00; }
+.laa-status-rejected { background: #f0f0f1; color: #787c82; }
+.laa-status-writing  { background: #d9e9ff; color: #1b4b91; }
+.laa-status-done     { background: #e4e9ff; color: #2c3e8f; }
+.laa-status-failed   { background: #fcd9d9; color: #a02020; }
+
+.column-status { width: 140px; }
+.column-updated { width: 130px; }
+.column-plan { width: 160px; }
+.column-keywords { width: 220px; }
+
+/* log */
+
+.laa-log-error td { background: #fff5f5; }
+
+/* presets screen */
+
+.laa-images-layout {
+	display: flex;
+	gap: 28px;
+	align-items: flex-start;
+	flex-wrap: wrap;
+}
+
+.laa-images-form {
+	flex: 1 1 640px;
+	min-width: 520px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	padding: 4px 20px 16px;
+}
+
+.laa-images-preview {
+	flex: 0 1 460px;
+	position: sticky;
+	top: 50px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	padding: 4px 20px 16px;
+}
+
+.laa-images-preview img {
+	max-width: 100%;
+	height: auto;
+	display: block;
+	border: 1px solid #dcdcde;
+}
+
+.laa-images-form .form-table th {
+	width: 180px;
+	padding-top: 14px;
+}
+
+.laa-images-form .form-table td {
+	padding-top: 10px;
+}
+
+.laa-media {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.laa-media-thumb img {
+	display: block;
+	width: 60px;
+	height: 60px;
+	object-fit: cover;
+	border: 1px solid #dcdcde;
+}
+
+.laa-delete {
+	color: #b32d2e;
+}
+
+/* plan metaboxes */
+
+.laa-form th {
+	width: 170px;
+}
