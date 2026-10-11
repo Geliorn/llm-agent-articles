@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AI Article Writer
  * Description: Контент-конвейер: по заданной теме предлагает список тем статей, человек его согласовывает, дальше плагин по расписанию пишет статью по SEO-правилам (структура заголовков, абзацы, списки, таблицы, цитаты, FAQ), делает обложку (генерация или библиотека + наложение) и публикует. Самодостаточен — свои типы записей, своя очередь, без ACF/CPT UI.
- * Version: 0.1.3
+ * Version: 0.1.4
  * Author: llm-agent.ru
  * Text Domain: laa
  */
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'LAA_VERSION', '0.1.3' );
+define( 'LAA_VERSION', '0.1.4' );
 define( 'LAA_PLUGIN_FILE', __FILE__ );
 define( 'LAA_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'LAA_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

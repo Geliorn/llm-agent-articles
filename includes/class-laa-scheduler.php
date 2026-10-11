@@ -27,6 +27,18 @@ class LAA_Scheduler {
 		add_filter( 'cron_schedules', array( __CLASS__, 'add_schedule' ) );
 		add_action( self::CRON_HOOK, array( __CLASS__, 'run_tick' ) );
 		add_action( 'init', array( __CLASS__, 'maybe_handle_http_trigger' ), 5 );
+		// Self-heal: ensure the recurring tick is scheduled whenever the plugin
+		// is active. activate() alone is not enough — an in-place update (files
+		// replaced without re-activation), a missed activation hook or a cleared
+		// cron entry would otherwise leave the tick unscheduled and silent.
+		add_action( 'init', array( __CLASS__, 'ensure_scheduled' ) );
+	}
+
+	/** Schedule the recurring tick if it isn't already (cheap autoloaded check). */
+	public static function ensure_scheduled() {
+		if ( ! wp_next_scheduled( self::CRON_HOOK ) ) {
+			wp_schedule_event( time(), 'laa_10_minutes', self::CRON_HOOK );
+		}
 	}
 
 	public static function add_schedule( $schedules ) {
@@ -38,9 +50,7 @@ class LAA_Scheduler {
 	}
 
 	public static function activate() {
-		if ( ! wp_next_scheduled( self::CRON_HOOK ) ) {
-			wp_schedule_event( time(), 'laa_10_minutes', self::CRON_HOOK );
-		}
+		self::ensure_scheduled();
 	}
 
 	public static function deactivate() {
