@@ -336,6 +336,13 @@ class LAA_Admin {
 					<tr><th>Модель</th><td><input type="text" name="deepseek_model" value="<?php echo esc_attr( $s['deepseek_model'] ); ?>" style="width:400px"></td></tr>
 				</table>
 
+				<h3>Qwen (Alibaba DashScope)</h3>
+				<table class="form-table">
+					<tr><th>API Key</th><td><input type="password" name="qwen_api_key" value="<?php echo esc_attr( $s['qwen_api_key'] ); ?>" style="width:400px"></td></tr>
+					<tr><th>Модель</th><td><input type="text" name="qwen_model" value="<?php echo esc_attr( $s['qwen_model'] ); ?>" style="width:400px"> <span class="description">напр. qwen-plus, qwen-max, qwen-turbo</span></td></tr>
+					<tr><th>Base URL</th><td><input type="text" name="qwen_base_url" value="<?php echo esc_attr( $s['qwen_base_url'] ); ?>" style="width:400px"> <span class="description">compatible-mode host DashScope (междунар. или КНР)</span></td></tr>
+				</table>
+
 				<h3>Timeweb (TWC AI API)</h3>
 				<table class="form-table">
 					<tr><th>Agent Access ID</th><td><input type="text" name="timeweb_agent_id" value="<?php echo esc_attr( $s['timeweb_agent_id'] ); ?>" style="width:400px"></td></tr>
@@ -792,6 +799,7 @@ class LAA_Admin {
 			'llm_provider', 'llm_timeout', 'llm_temperature_plan', 'llm_temperature_body',
 			'yandex_api_key', 'yandex_folder_id', 'yandex_model',
 			'deepseek_api_key', 'deepseek_model',
+			'qwen_api_key', 'qwen_model', 'qwen_base_url',
 			'timeweb_agent_id', 'timeweb_token', 'timeweb_proxy_source',
 			'openrouter_api_key', 'openrouter_model',
 			'image_mode', 'image_provider', 'default_preset',

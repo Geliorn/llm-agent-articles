@@ -21,6 +21,9 @@ class LAA_Settings {
 			'yandex_model'          => 'deepseek-v32/latest',
 			'deepseek_api_key'      => '',
 			'deepseek_model'        => 'deepseek-chat',
+			'qwen_api_key'          => '',
+			'qwen_model'            => 'qwen-plus',
+			'qwen_base_url'         => 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
 			'timeweb_agent_id'      => '',
 			'timeweb_token'         => '',
 			'timeweb_proxy_source'  => '',
@@ -112,6 +115,7 @@ class LAA_Settings {
 		return array(
 			'yandex'     => 'Yandex Foundation Models',
 			'deepseek'   => 'DeepSeek напрямую',
+			'qwen'       => 'Qwen (Alibaba DashScope)',
 			'timeweb'    => 'Timeweb (TWC AI API)',
 			'openrouter' => 'OpenRouter',
 		);
@@ -156,6 +160,15 @@ class LAA_Settings {
 					),
 					'model'    => $s['openrouter_model'],
 				);
+			case 'qwen':
+				return array(
+					'provider' => 'qwen',
+					'endpoint' => rtrim( $s['qwen_base_url'], '/' ) . '/chat/completions',
+					'headers'  => array(
+						'Authorization' => 'Bearer ' . $s['qwen_api_key'],
+					),
+					'model'    => $s['qwen_model'],
+				);
 			case 'deepseek':
 			default:
 				return array(
@@ -181,6 +194,8 @@ class LAA_Settings {
 				return '' !== $s['timeweb_agent_id'] && '' !== $s['timeweb_token'];
 			case 'openrouter':
 				return '' !== $s['openrouter_api_key'];
+			case 'qwen':
+				return '' !== $s['qwen_api_key'];
 			default:
 				return '' !== $s['deepseek_api_key'];
 		}
