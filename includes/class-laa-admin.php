@@ -13,6 +13,7 @@ class LAA_Admin {
 	const MAIN_SLUG     = 'laa-main';
 	const SETTINGS_SLUG = 'laa-settings';
 	const IMAGES_SLUG   = 'laa-images';
+	const INFOGRAPHIC_SLUG = 'laa-infographic';
 	const LOG_SLUG      = 'laa-log';
 
 	public static function init() {
@@ -33,7 +34,11 @@ class LAA_Admin {
 		add_action( 'admin_post_laa_upload_font', array( __CLASS__, 'handle_upload_font' ) );
 		add_action( 'admin_post_laa_clear_log', array( __CLASS__, 'handle_clear_log' ) );
 
+		add_action( 'admin_post_laa_save_infographic_preset', array( __CLASS__, 'handle_save_infographic_preset' ) );
+		add_action( 'admin_post_laa_delete_infographic_preset', array( __CLASS__, 'handle_delete_infographic_preset' ) );
+
 		add_action( 'wp_ajax_laa_preview_image', array( __CLASS__, 'ajax_preview_image' ) );
+		add_action( 'wp_ajax_laa_preview_infographic', array( __CLASS__, 'ajax_preview_infographic' ) );
 	}
 
 	public static function register_menu() {
@@ -50,6 +55,7 @@ class LAA_Admin {
 		add_submenu_page( self::MAIN_SLUG, 'Очередь тем', 'Очередь тем', 'edit_posts', self::MAIN_SLUG, array( __CLASS__, 'render_queue_page' ) );
 		add_submenu_page( self::MAIN_SLUG, 'Настройки', 'Настройки', 'manage_options', self::SETTINGS_SLUG, array( __CLASS__, 'render_settings_page' ) );
 		add_submenu_page( self::MAIN_SLUG, 'Обложки', 'Обложки', 'manage_options', self::IMAGES_SLUG, array( __CLASS__, 'render_images_page' ) );
+		add_submenu_page( self::MAIN_SLUG, 'Инфографика', 'Инфографика', 'manage_options', self::INFOGRAPHIC_SLUG, array( __CLASS__, 'render_infographic_page' ) );
 		add_submenu_page( self::MAIN_SLUG, 'Журнал', 'Журнал', 'manage_options', self::LOG_SLUG, array( __CLASS__, 'render_log_page' ) );
 	}
 
@@ -59,7 +65,19 @@ class LAA_Admin {
 		}
 		wp_enqueue_style( 'laa-admin', LAA_PLUGIN_URL . 'assets/css/admin.css', array(), LAA_VERSION );
 
-		if ( false !== strpos( (string) $hook, self::IMAGES_SLUG ) ) {
+		if ( false !== strpos( (string) $hook, self::INFOGRAPHIC_SLUG ) ) {
+			wp_enqueue_media();
+			wp_enqueue_script( 'laa-images', LAA_PLUGIN_URL . 'assets/js/laa-images.js', array( 'jquery' ), LAA_VERSION, true );
+			wp_localize_script(
+				'laa-images',
+				'laaImages',
+				array(
+					'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+					'nonce'   => wp_create_nonce( 'laa_preview_infographic' ),
+					'action'  => 'laa_preview_infographic',
+				)
+			);
+		} elseif ( false !== strpos( (string) $hook, self::IMAGES_SLUG ) ) {
 			wp_enqueue_media();
 			wp_enqueue_script( 'laa-images', LAA_PLUGIN_URL . 'assets/js/laa-images.js', array( 'jquery' ), LAA_VERSION, true );
 			wp_localize_script(
@@ -68,6 +86,7 @@ class LAA_Admin {
 				array(
 					'ajaxUrl' => admin_url( 'admin-ajax.php' ),
 					'nonce'   => wp_create_nonce( 'laa_preview_image' ),
+					'action'  => 'laa_preview_image',
 				)
 			);
 		}
@@ -425,6 +444,22 @@ class LAA_Admin {
 					</td></tr>
 				</table>
 
+				<h2>Инфографика</h2>
+				<table class="form-table">
+					<tr><th>Делать по умолчанию</th><td>
+						<label><input type="checkbox" name="infographic_enabled" value="1" <?php checked( $s['infographic_enabled'] ); ?>> собирать инфографику к каждой статье</label>
+						<p class="description">Отдельный контент-план может это переопределить. Тезисы для инфографики — отдельный короткий запрос к модели.</p>
+					</td></tr>
+					<tr><th>Пресет по умолчанию</th><td>
+						<select name="infographic_default_preset">
+							<?php foreach ( LAA_Infographic_Presets::get_all() as $id => $item ) : ?>
+								<option value="<?php echo esc_attr( $id ); ?>" <?php selected( $s['infographic_default_preset'], $id ); ?>><?php echo esc_html( $item['name'] ); ?></option>
+							<?php endforeach; ?>
+						</select>
+						<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::INFOGRAPHIC_SLUG ) ); ?>">Настроить →</a>
+					</td></tr>
+				</table>
+
 				<h2>Публикация и проверка</h2>
 				<table class="form-table">
 					<tr><th>SEO-плагин</th><td>
@@ -764,6 +799,364 @@ class LAA_Admin {
 		);
 	}
 
+	// -------------------------------------------------- infographic screen
+
+	public static function render_infographic_page() {
+		self::require_cap();
+
+		$presets = LAA_Infographic_Presets::get_all();
+		// phpcs:ignore WordPress.Security.NonceVerification
+		$current_id = isset( $_GET['preset'] ) ? sanitize_key( wp_unslash( $_GET['preset'] ) ) : (string) array_key_first( $presets );
+		$preset     = $presets[ $current_id ] ?? LAA_Infographic_Presets::schema();
+		$font       = LAA_Image_Composer::resolve_font( array( 'caption_font' => $preset['font'] ) );
+		?>
+		<div class="wrap laa-wrap">
+			<h1>Инфографика</h1>
+			<?php self::print_notice(); ?>
+
+			<?php if ( ! LAA_Image_Composer::text_available() ) : ?>
+				<div class="notice notice-error"><p>GD без FreeType — текст на картинку нанести нельзя, инфографика работать не будет.</p></div>
+			<?php elseif ( '' === $font ) : ?>
+				<div class="notice notice-warning"><p>Не найден TTF-шрифт. Загрузите его на экране <a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::IMAGES_SLUG ) ); ?>">«Обложки»</a> — без него инфографика не соберётся.</p></div>
+			<?php endif; ?>
+
+			<?php if ( ! LAA_Settings::get( 'infographic_enabled' ) ) : ?>
+				<div class="notice notice-info"><p>Инфографика выключена глобально — включить можно в <a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::SETTINGS_SLUG ) ); ?>">настройках</a>, либо отдельно у каждого контент-плана.</p></div>
+			<?php endif; ?>
+
+			<ul class="subsubsub">
+				<?php foreach ( $presets as $id => $item ) : ?>
+					<li>
+						<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::INFOGRAPHIC_SLUG . '&preset=' . $id ) ); ?>" <?php echo $id === $current_id ? 'class="current"' : ''; ?>>
+							<?php echo esc_html( $item['name'] ); ?>
+						</a> |
+					</li>
+				<?php endforeach; ?>
+				<li><a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::INFOGRAPHIC_SLUG . '&preset=new' ) ); ?>">+ новый пресет</a></li>
+			</ul>
+			<div style="clear:both"></div>
+
+			<div class="laa-images-layout">
+				<div class="laa-images-form">
+					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" id="laa-preset-form">
+						<?php wp_nonce_field( 'laa_save_infographic_preset' ); ?>
+						<input type="hidden" name="action" value="laa_save_infographic_preset">
+						<input type="hidden" name="preset_id" value="<?php echo esc_attr( 'new' === $current_id ? '' : $current_id ); ?>">
+						<?php self::render_infographic_fields( $preset ); ?>
+						<p>
+							<?php submit_button( 'Сохранить пресет', 'primary', 'submit', false ); ?>
+							<button type="button" class="button" id="laa-preview-button">Предпросмотр</button>
+							<?php if ( 'new' !== $current_id && count( $presets ) > 1 ) : ?>
+								<a class="button laa-delete" href="<?php echo esc_url( self::action_url( 'laa_delete_infographic_preset', array( 'preset_id' => $current_id ) ) ); ?>" onclick="return confirm('Удалить пресет?')">Удалить</a>
+							<?php endif; ?>
+						</p>
+					</form>
+				</div>
+
+				<div class="laa-images-preview">
+					<h2>Предпросмотр</h2>
+					<p>
+						<label for="laa-preview-title">Заголовок</label><br>
+						<input type="text" id="laa-preview-title" class="large-text" value="Как настроить AI-агент для обработки входящей почты">
+					</p>
+					<p>
+						<label for="laa-preview-points">Тезисы — по одному на строку, можно «метка | текст»</label><br>
+						<textarea id="laa-preview-points" rows="8" class="large-text code">Чтение письма | Агент извлекает чистый текст, отбрасывает подписи и цитаты переписки.
+Определение цели | Модель относит обращение к категории: вопрос, жалоба, заявка, счёт.
+Поиск фактов | Из текста вытаскиваются даты, суммы, номера договоров и имена.
+Проверка | Факты сверяются с базой; чего нет в источнике — в ответ не попадает.
+Черновик ответа | Шаблон задаёт тональность, модель заполняет его данными.
+Передача человеку | Спорные случаи уходят оператору с пометкой, почему агент не взялся.</textarea>
+					</p>
+					<div id="laa-preview-box"><p class="description">Нажмите «Предпросмотр», чтобы собрать инфографику с текущими настройками.</p></div>
+					<p class="description">Бюджет на тезис при этом пресете: <strong><?php echo (int) LAA_Infographic_Service::char_budget( $preset, 'list' === $preset['layout'] ? 8 : 6 ); ?></strong> символов — именно это число получает модель.</p>
+				</div>
+			</div>
+		</div>
+		<?php
+	}
+
+	private static function render_infographic_fields( array $p ) {
+		$positions = LAA_Image_Presets::positions();
+		?>
+		<h2>Полотно</h2>
+		<table class="form-table">
+			<tr><th>Название</th><td><input type="text" name="name" class="regular-text" value="<?php echo esc_attr( $p['name'] ); ?>"></td></tr>
+			<tr><th>Размер</th><td>
+				<input type="number" name="width" value="<?php echo esc_attr( $p['width'] ); ?>" style="width:90px"> ×
+				<input type="number" name="height" value="<?php echo esc_attr( $p['height'] ); ?>" style="width:90px"> px
+				<p class="description">Если инфографика ставится миниатюрой, пропорции должны совпадать с темой — иначе её обрежет, как было с обложкой. Тема сейчас: <?php echo esc_html( self::theme_featured_ratio() ); ?>.</p>
+			</td></tr>
+			<tr><th>Поля</th><td><input type="number" name="padding" min="0" max="300" value="<?php echo esc_attr( $p['padding'] ); ?>" style="width:80px"> px</td></tr>
+			<tr><th>Формат</th><td>
+				<select name="format"><?php self::options( array( 'jpg' => 'JPEG', 'webp' => 'WebP', 'png' => 'PNG' ), $p['format'] ); ?></select>
+				качество <input type="number" name="quality" min="1" max="100" value="<?php echo esc_attr( $p['quality'] ); ?>" style="width:70px">
+			</td></tr>
+		</table>
+
+		<h2>Фон</h2>
+		<table class="form-table">
+			<tr><th>Чем заполнять</th><td>
+				<select name="background_mode"><?php self::options( LAA_Infographic_Presets::background_modes(), $p['background_mode'] ); ?></select>
+				цвет <input type="text" name="background" value="<?php echo esc_attr( $p['background'] ); ?>" style="width:90px">
+			</td></tr>
+			<tr><th>Картинка-подложка</th><td>
+				<select name="fit"><?php self::options( LAA_Image_Presets::fit_modes(), $p['fit'] ); ?></select>
+				<select name="focal"><?php self::options( $positions, $p['focal'] ); ?></select>
+				<label><input type="checkbox" name="grayscale" value="1" <?php checked( $p['grayscale'] ); ?>> ч/б</label>
+				яркость <input type="number" name="brightness" min="-255" max="255" value="<?php echo esc_attr( $p['brightness'] ); ?>" style="width:70px">
+				контраст <input type="number" name="contrast" min="-100" max="100" value="<?php echo esc_attr( $p['contrast'] ); ?>" style="width:70px">
+				размытие <input type="number" name="blur" min="0" max="10" value="<?php echo esc_attr( $p['blur'] ); ?>" style="width:60px">
+				<p class="description">Берётся из того же пула, что и обложки. Фон должен быть тихим: поверх него читается текст.</p>
+			</td></tr>
+			<tr><th>Тонирование</th><td>
+				<input type="text" name="colorize_hex" value="<?php echo esc_attr( $p['colorize_hex'] ); ?>" style="width:90px" placeholder="#1f6feb">
+				сила <input type="number" name="colorize_strength" min="0" max="100" value="<?php echo esc_attr( $p['colorize_strength'] ); ?>" style="width:60px">%
+			</td></tr>
+			<tr><th>Заливка цветом</th><td>
+				<input type="text" name="tint_hex" value="<?php echo esc_attr( $p['tint_hex'] ); ?>" style="width:90px">
+				непрозрачность <input type="number" name="tint_alpha" min="0" max="100" value="<?php echo esc_attr( $p['tint_alpha'] ); ?>" style="width:60px">%
+			</td></tr>
+			<tr><th>Градиент</th><td>
+				<label><input type="checkbox" name="gradient_enabled" value="1" <?php checked( $p['gradient_enabled'] ); ?>> включить</label>
+				<select name="gradient_direction"><?php self::options( LAA_Image_Presets::gradient_directions(), $p['gradient_direction'] ); ?></select>
+				от <input type="text" name="gradient_from_hex" value="<?php echo esc_attr( $p['gradient_from_hex'] ); ?>" style="width:90px">
+				<input type="number" name="gradient_from_alpha" min="0" max="100" value="<?php echo esc_attr( $p['gradient_from_alpha'] ); ?>" style="width:60px">%
+				к <input type="text" name="gradient_to_hex" value="<?php echo esc_attr( $p['gradient_to_hex'] ); ?>" style="width:90px">
+				<input type="number" name="gradient_to_alpha" min="0" max="100" value="<?php echo esc_attr( $p['gradient_to_alpha'] ); ?>" style="width:60px">%
+			</td></tr>
+			<tr><th>PNG-маска</th><td>
+				<?php self::media_field( 'mask_id', (int) $p['mask_id'], 'Выбрать маску' ); ?>
+				<select name="mask_mode"><?php self::options( LAA_Image_Presets::mask_modes(), $p['mask_mode'] ); ?></select>
+				<input type="number" name="mask_alpha" min="0" max="100" value="<?php echo esc_attr( $p['mask_alpha'] ); ?>" style="width:60px">%
+			</td></tr>
+		</table>
+
+		<h2>Заголовок</h2>
+		<table class="form-table">
+			<tr><th>Показывать</th><td>
+				<label><input type="checkbox" name="title_enabled" value="1" <?php checked( $p['title_enabled'] ); ?>> заголовок статьи сверху</label>
+			</td></tr>
+			<tr><th>Кегль</th><td>
+				<input type="number" name="title_size" min="12" max="160" value="<?php echo esc_attr( $p['title_size'] ); ?>" style="width:70px">
+				минимум <input type="number" name="title_min_size" min="10" max="160" value="<?php echo esc_attr( $p['title_min_size'] ); ?>" style="width:70px">
+				интерлиньяж <input type="text" name="title_line_height" value="<?php echo esc_attr( $p['title_line_height'] ); ?>" style="width:60px">
+				строк <input type="number" name="title_max_lines" min="1" max="5" value="<?php echo esc_attr( $p['title_max_lines'] ); ?>" style="width:55px">
+			</td></tr>
+			<tr><th>Вид</th><td>
+				цвет <input type="text" name="title_color" value="<?php echo esc_attr( $p['title_color'] ); ?>" style="width:90px">
+				<select name="title_align"><?php self::options( array( 'left' => 'по левому краю', 'center' => 'по центру', 'right' => 'по правому краю' ), $p['title_align'] ); ?></select>
+				отступ снизу <input type="number" name="title_gap" min="0" max="200" value="<?php echo esc_attr( $p['title_gap'] ); ?>" style="width:60px">
+			</td></tr>
+		</table>
+
+		<h2>Раскладка</h2>
+		<table class="form-table">
+			<tr><th>Тип</th><td>
+				<select name="layout"><?php self::options( LAA_Infographic_Presets::layouts(), $p['layout'] ); ?></select>
+				колонок <input type="number" name="columns" min="1" max="4" value="<?php echo esc_attr( $p['columns'] ); ?>" style="width:55px">
+				<p class="description">Для списка число колонок игнорируется — он всегда в одну.</p>
+			</td></tr>
+			<tr><th>Зазоры</th><td>
+				по горизонтали <input type="number" name="gap_x" min="0" max="120" value="<?php echo esc_attr( $p['gap_x'] ); ?>" style="width:60px">
+				по вертикали <input type="number" name="gap_y" min="0" max="120" value="<?php echo esc_attr( $p['gap_y'] ); ?>" style="width:60px">
+			</td></tr>
+			<tr><th>Плашка пункта</th><td>
+				<label><input type="checkbox" name="plate_enabled" value="1" <?php checked( $p['plate_enabled'] ); ?>> включить</label>
+				цвет <input type="text" name="plate_color" value="<?php echo esc_attr( $p['plate_color'] ); ?>" style="width:90px">
+				<input type="number" name="plate_alpha" min="0" max="100" value="<?php echo esc_attr( $p['plate_alpha'] ); ?>" style="width:55px">%
+				скругление <input type="number" name="plate_radius" min="0" max="80" value="<?php echo esc_attr( $p['plate_radius'] ); ?>" style="width:55px">
+				внутр. отступ <input type="number" name="plate_padding" min="0" max="100" value="<?php echo esc_attr( $p['plate_padding'] ); ?>" style="width:55px">
+			</td></tr>
+			<tr><th>Обводка плашки</th><td>
+				толщина <input type="number" name="plate_border_width" min="0" max="12" value="<?php echo esc_attr( $p['plate_border_width'] ); ?>" style="width:55px">
+				цвет <input type="text" name="plate_border_color" value="<?php echo esc_attr( $p['plate_border_color'] ); ?>" style="width:90px">
+			</td></tr>
+		</table>
+
+		<h2>Маркер и текст</h2>
+		<table class="form-table">
+			<tr><th>Маркер</th><td>
+				<select name="badge_style"><?php self::options( LAA_Infographic_Presets::badge_styles(), $p['badge_style'] ); ?></select>
+				размер <input type="number" name="badge_size" min="0" max="120" value="<?php echo esc_attr( $p['badge_size'] ); ?>" style="width:55px">
+				отступ <input type="number" name="badge_gap" min="0" max="80" value="<?php echo esc_attr( $p['badge_gap'] ); ?>" style="width:55px">
+				фон <input type="text" name="badge_bg" value="<?php echo esc_attr( $p['badge_bg'] ); ?>" style="width:90px">
+				цифра <input type="text" name="badge_color" value="<?php echo esc_attr( $p['badge_color'] ); ?>" style="width:90px">
+				<p class="description">Маркер масштабируется вместе с текстом: при плотной вёрстке он не должен съедать треть ячейки.</p>
+			</td></tr>
+			<tr><th>Метка пункта</th><td>
+				<label><input type="checkbox" name="label_enabled" value="1" <?php checked( $p['label_enabled'] ); ?>> короткая строка над тезисом</label>
+				кегль <input type="number" name="label_size" min="8" max="100" value="<?php echo esc_attr( $p['label_size'] ); ?>" style="width:55px">
+				цвет <input type="text" name="label_color" value="<?php echo esc_attr( $p['label_color'] ); ?>" style="width:90px">
+				отступ <input type="number" name="label_gap" min="0" max="60" value="<?php echo esc_attr( $p['label_gap'] ); ?>" style="width:55px">
+				<label><input type="checkbox" name="label_uppercase" value="1" <?php checked( $p['label_uppercase'] ); ?>> ПРОПИСНЫЕ</label>
+			</td></tr>
+			<tr><th>Текст тезиса</th><td>
+				кегль <input type="number" name="text_size" min="8" max="100" value="<?php echo esc_attr( $p['text_size'] ); ?>" style="width:55px">
+				минимум <input type="number" name="text_min_size" min="6" max="100" value="<?php echo esc_attr( $p['text_min_size'] ); ?>" style="width:55px">
+				интерлиньяж <input type="text" name="text_line_height" value="<?php echo esc_attr( $p['text_line_height'] ); ?>" style="width:55px">
+				цвет <input type="text" name="text_color" value="<?php echo esc_attr( $p['text_color'] ); ?>" style="width:90px">
+				<p class="description">Кегль один на все пункты: подбирается по самому длинному тезису и опускается до минимума. Что не влезло даже так — переписывается моделью, а не обрезается.</p>
+			</td></tr>
+			<tr><th>Шрифт</th><td>
+				<select name="font">
+					<option value="">Определять автоматически</option>
+					<?php foreach ( LAA_Image_Composer::uploaded_fonts() as $item ) : ?>
+						<option value="<?php echo esc_attr( $item['name'] ); ?>" <?php selected( basename( $p['font'] ), $item['name'] ); ?>><?php echo esc_html( $item['name'] ); ?></option>
+					<?php endforeach; ?>
+				</select>
+			</td></tr>
+		</table>
+
+		<h2>Подвал и логотип</h2>
+		<table class="form-table">
+			<tr><th>Подвал</th><td>
+				<label><input type="checkbox" name="footer_enabled" value="1" <?php checked( $p['footer_enabled'] ); ?>> показывать</label>
+				<input type="text" name="footer_text" value="<?php echo esc_attr( $p['footer_text'] ); ?>" style="width:220px" placeholder="<?php echo esc_attr( (string) wp_parse_url( home_url(), PHP_URL_HOST ) ); ?>">
+				кегль <input type="number" name="footer_size" min="8" max="60" value="<?php echo esc_attr( $p['footer_size'] ); ?>" style="width:55px">
+				цвет <input type="text" name="footer_color" value="<?php echo esc_attr( $p['footer_color'] ); ?>" style="width:90px">
+				<select name="footer_align"><?php self::options( array( 'left' => 'слева', 'center' => 'по центру', 'right' => 'справа' ), $p['footer_align'] ); ?></select>
+				отступ <input type="number" name="footer_gap" min="0" max="120" value="<?php echo esc_attr( $p['footer_gap'] ); ?>" style="width:55px">
+				<p class="description">Пусто — подставится домен сайта.</p>
+			</td></tr>
+			<tr><th>Логотип</th><td>
+				<?php self::media_field( 'logo_id', (int) $p['logo_id'], 'Выбрать логотип' ); ?>
+				<select name="logo_position"><?php self::options( $positions, $p['logo_position'] ); ?></select>
+				ширина <input type="number" name="logo_width" min="2" max="60" value="<?php echo esc_attr( $p['logo_width'] ); ?>" style="width:55px">%
+				<input type="number" name="logo_alpha" min="0" max="100" value="<?php echo esc_attr( $p['logo_alpha'] ); ?>" style="width:55px">%
+				отступы <input type="number" name="logo_offset_x" value="<?php echo esc_attr( $p['logo_offset_x'] ); ?>" style="width:55px">
+				<input type="number" name="logo_offset_y" value="<?php echo esc_attr( $p['logo_offset_y'] ); ?>" style="width:55px">
+			</td></tr>
+		</table>
+		<?php
+	}
+
+	private static function infographic_values_from_request( array $request ) {
+		$checkboxes = array( 'grayscale', 'gradient_enabled', 'title_enabled', 'plate_enabled', 'label_enabled', 'label_uppercase', 'footer_enabled' );
+
+		$values = array();
+		foreach ( LAA_Infographic_Presets::schema() as $key => $default ) {
+			if ( in_array( $key, $checkboxes, true ) ) {
+				$values[ $key ] = isset( $request[ $key ] ) ? 1 : 0;
+				continue;
+			}
+			if ( isset( $request[ $key ] ) ) {
+				$values[ $key ] = is_array( $request[ $key ] ) ? '' : wp_unslash( $request[ $key ] );
+			}
+		}
+		return $values;
+	}
+
+	public static function handle_save_infographic_preset() {
+		check_admin_referer( 'laa_save_infographic_preset' );
+		self::require_cap();
+
+		$preset_id = isset( $_POST['preset_id'] ) ? sanitize_key( wp_unslash( $_POST['preset_id'] ) ) : '';
+		$values    = self::infographic_values_from_request( $_POST ); // phpcs:ignore WordPress.Security.NonceVerification
+
+		if ( '' === $preset_id ) {
+			$preset_id = sanitize_title( $values['name'] ) ?: 'infographic';
+			$existing  = LAA_Infographic_Presets::get_all();
+			if ( isset( $existing[ $preset_id ] ) ) {
+				$preset_id .= '-' . substr( md5( (string) microtime( true ) ), 0, 5 );
+			}
+		}
+
+		$saved_id = LAA_Infographic_Presets::save( $preset_id, $values );
+
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'       => self::INFOGRAPHIC_SLUG,
+					'preset'     => $saved_id,
+					'laa_notice' => 'Пресет сохранён.',
+				),
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
+	}
+
+	public static function handle_delete_infographic_preset() {
+		check_admin_referer( 'laa_delete_infographic_preset' );
+		self::require_cap();
+
+		$preset_id = isset( $_GET['preset_id'] ) ? sanitize_key( wp_unslash( $_GET['preset_id'] ) ) : '';
+		LAA_Infographic_Presets::delete( $preset_id );
+
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'       => self::INFOGRAPHIC_SLUG,
+					'laa_notice' => 'Пресет удалён.',
+				),
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
+	}
+
+	/** Renders the form's current values with the sample theses from the textarea. */
+	public static function ajax_preview_infographic() {
+		check_ajax_referer( 'laa_preview_infographic', 'nonce' );
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => 'Недостаточно прав.' ) );
+		}
+
+		$preset = LAA_Infographic_Presets::sanitize( self::infographic_values_from_request( $_POST ) ); // phpcs:ignore WordPress.Security.NonceVerification
+		$title  = isset( $_POST['preview_title'] ) ? sanitize_text_field( wp_unslash( $_POST['preview_title'] ) ) : '';
+		$raw    = isset( $_POST['preview_points'] ) ? (string) wp_unslash( $_POST['preview_points'] ) : '';
+
+		$points = array();
+		foreach ( preg_split( '/\r?\n/', $raw ) as $line ) {
+			$line = trim( $line );
+			if ( '' === $line ) {
+				continue;
+			}
+			$parts    = array_map( 'trim', explode( '|', $line, 2 ) );
+			$points[] = 2 === count( $parts )
+				? array( 'label' => sanitize_text_field( $parts[0] ), 'text' => sanitize_text_field( $parts[1] ) )
+				: array( 'label' => '', 'text' => sanitize_text_field( $parts[0] ) );
+		}
+
+		if ( empty( $points ) ) {
+			wp_send_json_error( array( 'message' => 'Введите хотя бы один тезис.' ) );
+		}
+
+		$background = null;
+		if ( 'library' === $preset['background_mode'] ) {
+			$source     = LAA_Image_Service::pick_source( $title );
+			$background = $source['path'] ?: null;
+		}
+
+		$tmp    = LAA_Image_Service::temp_path( LAA_Image_Composer::extension_for( $preset['format'] ) );
+		$result = LAA_Infographic_Composer::compose( $preset, $points, $title, $background, $tmp );
+
+		if ( ! $result['ok'] ) {
+			wp_send_json_error( array( 'message' => $result['error'] ) );
+		}
+
+		$bytes = (string) file_get_contents( $tmp ); // phpcs:ignore
+		@unlink( $tmp ); // phpcs:ignore
+
+		$notice = sprintf( 'Кегль текста: %d px.', $result['text_size'] );
+		if ( ! empty( $result['overflow'] ) ) {
+			$parts = array();
+			foreach ( $result['overflow'] as $item ) {
+				$parts[] = sprintf( '№%d (влезает ~%d символов)', $item['index'] + 1, $item['fits_chars'] );
+			}
+			$notice .= ' Не помещаются: ' . implode( ', ', $parts ) . '. При генерации такие тезисы переписываются моделью.';
+		}
+
+		wp_send_json_success(
+			array(
+				'dataUri' => 'data:' . $result['mime'] . ';base64,' . base64_encode( $bytes ),
+				'notice'  => $notice,
+				'source'  => $background ? basename( $background ) : 'сплошной фон',
+			)
+		);
+	}
+
 	// ----------------------------------------------------------- log screen
 
 	public static function render_log_page() {
@@ -794,7 +1187,7 @@ class LAA_Admin {
 		check_admin_referer( 'laa_save_settings' );
 		self::require_cap();
 
-		$checkboxes = array( 'image_fallback_library', 'checker_enforce' );
+		$checkboxes = array( 'image_fallback_library', 'checker_enforce', 'infographic_enabled' );
 		$texts      = array(
 			'llm_provider', 'llm_timeout', 'llm_temperature_plan', 'llm_temperature_body',
 			'yandex_api_key', 'yandex_folder_id', 'yandex_model',
@@ -808,6 +1201,7 @@ class LAA_Admin {
 			'library_source', 'library_ids', 'library_term', 'library_folder', 'library_strategy',
 			'seo_plugin', 'min_words_hard', 'min_sections_hard', 'caption_font_path',
 			'title_max_chars', 'meta_title_max_chars', 'title_rewrite_attempts',
+			'infographic_default_preset',
 		);
 
 		$values = array();

@@ -47,9 +47,16 @@
 			return field.name !== 'action' && field.name !== '_wpnonce' && field.name !== '_wp_http_referer';
 		} );
 
-		fields.push( { name: 'action', value: 'laa_preview_image' } );
+		// Same script serves the cover screen and the infographic screen; the
+		// action it posts to comes from the localised config.
+		fields.push( { name: 'action', value: laaImages.action || 'laa_preview_image' } );
 		fields.push( { name: 'nonce', value: laaImages.nonce } );
 		fields.push( { name: 'preview_title', value: $( '#laa-preview-title' ).val() } );
+
+		var $points = $( '#laa-preview-points' );
+		if ( $points.length ) {
+			fields.push( { name: 'preview_points', value: $points.val() } );
+		}
 
 		$button.prop( 'disabled', true ).text( 'Собираю…' );
 		$box.html( '<p class="description">Собираю картинку…</p>' );

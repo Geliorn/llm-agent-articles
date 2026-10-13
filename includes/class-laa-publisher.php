@@ -24,6 +24,11 @@ class LAA_Publisher {
 		}
 
 		$article = $generated['article'];
+
+		// The builder needs to know whether to leave a slot for the infographic
+		// before it assembles anything.
+		$meta['infographic_wanted'] = self::infographic_wanted( $meta );
+
 		$built   = LAA_Article_Builder::build( $article, $meta );
 		$content = $built['content'];
 
@@ -76,9 +81,15 @@ class LAA_Publisher {
 
 		LAA_SEO::apply( $post_id, $article['meta_title'], $article['meta_description'] );
 
-		$cover = LAA_Image_Service::attach_cover( $post_id, $article, $meta );
-		if ( ! $cover['ok'] ) {
-			LAA_Log::error( sprintf( 'Статья #%d «%s»: обложка не сделана — %s', $post_id, $article['title'], $cover['error'] ) );
+		$infographic = self::attach_infographic( $post_id, $article, $meta, $report );
+
+		// A cover would only be overwritten a moment later, so skip it when the
+		// infographic has already claimed the thumbnail.
+		if ( ! ( $infographic['ok'] && $infographic['is_thumbnail'] ) ) {
+			$cover = LAA_Image_Service::attach_cover( $post_id, $article, $meta );
+			if ( ! $cover['ok'] ) {
+				LAA_Log::error( sprintf( 'Статья #%d «%s»: обложка не сделана — %s', $post_id, $article['title'], $cover['error'] ) );
+			}
 		}
 
 		LAA_Log::add(
@@ -97,6 +108,123 @@ class LAA_Publisher {
 			'post_id' => (int) $post_id,
 			'error'   => '',
 			'report'  => $report,
+		);
+	}
+
+	public static function infographic_wanted( array $meta ) {
+		$mode = $meta['infographic_mode'] ?? 'inherit';
+		if ( 'inherit' === $mode ) {
+			return (bool) LAA_Settings::get( 'infographic_enabled' );
+		}
+		return 'on' === $mode;
+	}
+
+	/**
+	 * Builds the infographic, swaps it into the post content in place of the
+	 * marker and optionally makes it the thumbnail. The marker is removed in
+	 * every path, including failure — it must never reach the page.
+	 *
+	 * @return array{ok:bool,is_thumbnail:bool,attachment_id:int}
+	 */
+	private static function attach_infographic( $post_id, array $article, array $meta, array &$report ) {
+		$result = array(
+			'ok'            => false,
+			'is_thumbnail'  => false,
+			'attachment_id' => 0,
+		);
+
+		if ( empty( $meta['infographic_wanted'] ) ) {
+			self::strip_marker( $post_id );
+			return $result;
+		}
+
+		$made = LAA_Infographic_Service::create_for_post( $post_id, $article, $meta );
+
+		foreach ( $made['notes'] as $note ) {
+			$report['warnings'][] = 'Инфографика: ' . $note;
+		}
+
+		if ( ! $made['ok'] ) {
+			LAA_Log::error( sprintf( 'Статья #%d «%s»: инфографика не сделана — %s', $post_id, $article['title'], $made['error'] ) );
+			$report['warnings'][] = 'Инфографика не сделана: ' . $made['error'];
+			self::strip_marker( $post_id );
+			return $result;
+		}
+
+		self::insert_infographic_block( $post_id, $made['attachment_id'] );
+
+		if ( ! empty( $meta['infographic_as_thumbnail'] ) ) {
+			set_post_thumbnail( $post_id, $made['attachment_id'] );
+			$result['is_thumbnail'] = true;
+		}
+
+		LAA_Log::add( sprintf( 'Статья #%d: инфографика #%d, пунктов %d', $post_id, $made['attachment_id'], count( $made['points'] ) ) );
+
+		$result['ok']            = true;
+		$result['attachment_id'] = (int) $made['attachment_id'];
+
+		return $result;
+	}
+
+	private static function insert_infographic_block( $post_id, $attachment_id ) {
+		$post = get_post( $post_id );
+		if ( ! $post ) {
+			return;
+		}
+
+		$url = wp_get_attachment_image_url( $attachment_id, 'full' );
+		$alt = (string) get_post_meta( $attachment_id, '_wp_attachment_image_alt', true );
+
+		$attrs = wp_json_encode(
+			array(
+				'id'              => (int) $attachment_id,
+				'sizeSlug'        => 'large',
+				'linkDestination' => 'none',
+				'className'       => 'laa-infographic',
+			),
+			JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+		);
+
+		$block = "<!-- wp:image " . $attrs . " -->\n"
+			. '<figure class="wp-block-image size-large laa-infographic">'
+			. '<img src="' . esc_url( $url ) . '" alt="' . esc_attr( $alt ) . '" class="wp-image-' . (int) $attachment_id . '"/>'
+			. "</figure>\n"
+			. '<!-- /wp:image -->';
+
+		$content = str_replace( LAA_Article_Builder::INFOGRAPHIC_MARKER, $block, $post->post_content );
+
+		// No marker (older content, or an edited post) — append rather than lose it.
+		if ( $content === $post->post_content ) {
+			$content .= "\n\n" . $block;
+		}
+
+		wp_update_post(
+			array(
+				'ID'           => $post_id,
+				'post_content' => $content,
+			)
+		);
+	}
+
+	private static function strip_marker( $post_id ) {
+		$post = get_post( $post_id );
+		if ( ! $post || false === strpos( $post->post_content, LAA_Article_Builder::INFOGRAPHIC_MARKER ) ) {
+			return;
+		}
+
+		// Blocks are joined with a blank line, so take the separator in front of
+		// the marker with it — otherwise removing the marker leaves a gap.
+		// Order matters: strip the "\n\n + marker" form first, then a bare
+		// marker that happened to be the very first block.
+		$content = str_replace( "\n\n" . LAA_Article_Builder::INFOGRAPHIC_MARKER, '', $post->post_content );
+		$content = str_replace( LAA_Article_Builder::INFOGRAPHIC_MARKER . "\n\n", '', $content );
+		$content = str_replace( LAA_Article_Builder::INFOGRAPHIC_MARKER, '', $content );
+
+		wp_update_post(
+			array(
+				'ID'           => $post_id,
+				'post_content' => $content,
+			)
 		);
 	}
 

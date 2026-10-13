@@ -8,6 +8,10 @@ if ( ! defined( 'ABSPATH' ) ) {
  * tint, gradient, a semi-transparent PNG mask, a logo, the caption and a
  * border.
  *
+ * The background pipeline, the shape helpers and the file output are
+ * `protected` rather than `private` because LAA_Infographic_Composer extends
+ * this class and reuses all of them — only the caption layout differs.
+ *
  * GD only, deliberately. Imagick would give slightly nicer gradients and
  * rounded corners, but it would mean two full implementations of everything
  * below and two sets of bugs; GD with FreeType is present on every host this
@@ -87,7 +91,7 @@ class LAA_Image_Composer {
 
 	// --------------------------------------------------------------- canvas
 
-	private static function new_canvas( $width, $height, $background ) {
+	protected static function new_canvas( $width, $height, $background ) {
 		$canvas = imagecreatetruecolor( $width, $height );
 		imagealphablending( $canvas, false );
 		imagesavealpha( $canvas, true );
@@ -101,7 +105,7 @@ class LAA_Image_Composer {
 	}
 
 	/** Scales the source to cover (and crops by the focal point) or to contain. */
-	private static function draw_source( $canvas, $source, array $preset ) {
+	protected static function draw_source( $canvas, $source, array $preset ) {
 		$cw = imagesx( $canvas );
 		$ch = imagesy( $canvas );
 		$sw = imagesx( $source );
@@ -166,7 +170,7 @@ class LAA_Image_Composer {
 
 	// -------------------------------------------------------------- filters
 
-	private static function apply_filters( $canvas, array $preset ) {
+	protected static function apply_filters( $canvas, array $preset ) {
 		if ( $preset['grayscale'] ) {
 			imagefilter( $canvas, IMG_FILTER_GRAYSCALE );
 		}
@@ -195,7 +199,7 @@ class LAA_Image_Composer {
 		}
 	}
 
-	private static function apply_tint( $canvas, array $preset ) {
+	protected static function apply_tint( $canvas, array $preset ) {
 		$alpha = (int) $preset['tint_alpha'];
 		if ( $alpha < 1 || '' === $preset['tint_hex'] ) {
 			return;
@@ -206,7 +210,7 @@ class LAA_Image_Composer {
 		imagefilledrectangle( $canvas, 0, 0, imagesx( $canvas ) - 1, imagesy( $canvas ) - 1, $color );
 	}
 
-	private static function apply_gradient( $canvas, array $preset ) {
+	protected static function apply_gradient( $canvas, array $preset ) {
 		if ( ! $preset['gradient_enabled'] ) {
 			return;
 		}
@@ -252,7 +256,7 @@ class LAA_Image_Composer {
 		}
 	}
 
-	private static function apply_mask( $canvas, array $preset ) {
+	protected static function apply_mask( $canvas, array $preset ) {
 		$attachment_id = (int) $preset['mask_id'];
 		if ( $attachment_id < 1 ) {
 			return;
@@ -310,7 +314,7 @@ class LAA_Image_Composer {
 	}
 
 	/** Multiplies every pixel's opacity by $factor (0..1), keeping its own alpha shape. */
-	private static function scale_layer_alpha( $layer, $factor ) {
+	protected static function scale_layer_alpha( $layer, $factor ) {
 		$w = imagesx( $layer );
 		$h = imagesy( $layer );
 
@@ -334,7 +338,7 @@ class LAA_Image_Composer {
 		imagealphablending( $layer, true );
 	}
 
-	private static function apply_logo( $canvas, array $preset ) {
+	protected static function apply_logo( $canvas, array $preset ) {
 		$attachment_id = (int) $preset['logo_id'];
 		if ( $attachment_id < 1 ) {
 			return;
@@ -643,7 +647,7 @@ class LAA_Image_Composer {
 
 	// ------------------------------------------------------- frame & output
 
-	private static function apply_border( $canvas, array $preset ) {
+	protected static function apply_border( $canvas, array $preset ) {
 		$width = (int) $preset['border_width'];
 		if ( $width < 1 ) {
 			return;
@@ -670,7 +674,7 @@ class LAA_Image_Composer {
 		}
 	}
 
-	private static function apply_corner_radius( $canvas, array $preset ) {
+	protected static function apply_corner_radius( $canvas, array $preset ) {
 		$radius = (int) $preset['corner_radius'];
 		if ( $radius < 1 ) {
 			return;
@@ -725,7 +729,7 @@ class LAA_Image_Composer {
 
 	/** Filled rectangle with rounded corners, drawn on its own layer so the
 	 *  overlapping arcs don't blend with each other and darken the corners. */
-	private static function rounded_rect( $canvas, $x1, $y1, $x2, $y2, $radius, array $rgb, $alpha_pct ) {
+	protected static function rounded_rect( $canvas, $x1, $y1, $x2, $y2, $radius, array $rgb, $alpha_pct ) {
 		$x1 = max( 0, (int) $x1 );
 		$y1 = max( 0, (int) $y1 );
 		$x2 = min( imagesx( $canvas ) - 1, (int) $x2 );
@@ -764,7 +768,7 @@ class LAA_Image_Composer {
 		imagedestroy( $layer );
 	}
 
-	private static function save( $canvas, array $preset, $out_path ) {
+	protected static function save( $canvas, array $preset, $out_path ) {
 		$dir = dirname( $out_path );
 		if ( ! wp_mkdir_p( $dir ) ) {
 			return self::fail( 'Не удалось создать каталог для картинки: ' . $dir );
@@ -814,12 +818,12 @@ class LAA_Image_Composer {
 	}
 
 	/** Percent opacity (0..100) -> GD alpha (127..0). */
-	private static function alpha_to_gd( $percent ) {
+	protected static function alpha_to_gd( $percent ) {
 		$percent = max( 0, min( 100, (float) $percent ) );
 		return (int) round( self::GD_TRANSPARENT * ( 1 - $percent / 100 ) );
 	}
 
-	private static function fail( $error ) {
+	protected static function fail( $error ) {
 		return array(
 			'ok'    => false,
 			'path'  => '',

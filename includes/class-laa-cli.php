@@ -230,6 +230,85 @@ class LAA_CLI {
 	}
 
 	/**
+	 * Build an infographic for an article that already exists and insert it.
+	 *
+	 * ## OPTIONS
+	 * <post>...
+	 * : One or more post IDs.
+	 *
+	 * [--preset=<id>]
+	 * : Override the preset the plan would use.
+	 *
+	 * [--points=<n>]
+	 * : How many theses to ask for.
+	 *
+	 * ## EXAMPLES
+	 *     wp laa infographic 692 --points=6
+	 */
+	public function infographic( $args, $assoc_args ) {
+		if ( empty( $args ) ) {
+			WP_CLI::error( 'Передайте ID записей: wp laa infographic 692' );
+		}
+
+		foreach ( $args as $post_id ) {
+			$post_id = (int) $post_id;
+			$post    = get_post( $post_id );
+
+			if ( ! $post ) {
+				WP_CLI::warning( "Запись #{$post_id} не найдена." );
+				continue;
+			}
+
+			$plan_id = (int) get_post_meta( $post_id, '_laa_plan_id', true );
+			$meta    = $plan_id ? LAA_Meta_Fields::get_plan_settings( $plan_id ) : LAA_Meta_Fields::get_plan_settings( 0 );
+
+			if ( isset( $assoc_args['preset'] ) ) {
+				$meta['infographic_preset'] = sanitize_key( $assoc_args['preset'] );
+			}
+			if ( isset( $assoc_args['points'] ) ) {
+				$meta['infographic_points'] = (int) $assoc_args['points'];
+			}
+
+			// The article is already written, so rebuild the plan shape the
+			// theses generator expects out of what's stored on the post.
+			$article = array(
+				'title'     => $post->post_title,
+				'lead'      => (string) $post->post_excerpt,
+				'takeaways' => array(),
+				'sections'  => self::sections_of( $post->post_content ),
+			);
+
+			$made = LAA_Infographic_Service::create_for_post( $post_id, $article, $meta );
+
+			foreach ( $made['notes'] as $note ) {
+				WP_CLI::line( '  ' . $note );
+			}
+
+			if ( ! $made['ok'] ) {
+				WP_CLI::warning( "Запись #{$post_id}: " . $made['error'] );
+				continue;
+			}
+
+			WP_CLI::success( sprintf( 'Запись #%d: инфографика #%d, пунктов %d', $post_id, $made['attachment_id'], count( $made['points'] ) ) );
+			WP_CLI::line( '  вставьте её в текст вручную или перегенерируйте статью — эта команда только собирает картинку' );
+		}
+	}
+
+	/** H2 headings of an existing post, used as input for the theses. */
+	private static function sections_of( $content ) {
+		preg_match_all( '/<h2[^>]*>(.*?)<\/h2>/is', (string) $content, $matches );
+
+		$out = array();
+		foreach ( (array) $matches[1] as $heading ) {
+			$text = trim( wp_strip_all_tags( $heading ) );
+			if ( '' !== $text && ! in_array( $text, array( 'Коротко', 'Что в статье', 'Частые вопросы', 'Читайте также' ), true ) ) {
+				$out[] = array( 'h2' => $text );
+			}
+		}
+		return $out;
+	}
+
+	/**
 	 * Render a preset onto a pool image, to a file — a preview without the admin.
 	 *
 	 * ## OPTIONS

@@ -63,6 +63,13 @@ class LAA_Meta_Fields {
 			'image_mode'                => array( 'text', 'inherit' ),
 			'image_preset'              => array( 'text', '' ),
 
+			// infographic
+			'infographic_mode'          => array( 'text', 'inherit' ),
+			'infographic_preset'        => array( 'text', '' ),
+			'infographic_points'        => array( 'int', 6 ),
+			'infographic_as_thumbnail'  => array( 'bool', 1 ),
+			'infographic_position'      => array( 'text', 'after_takeaways' ),
+
 			// runtime
 			'last_run_at'               => array( 'int', 0 ),
 			'running_since'             => array( 'int', 0 ),
@@ -434,6 +441,43 @@ class LAA_Meta_Fields {
 			</select>
 		</p>
 		<p><a href="<?php echo esc_url( admin_url( 'admin.php?page=' . LAA_Admin::IMAGES_SLUG ) ); ?>">Настроить пресеты →</a></p>
+
+		<hr>
+
+		<p>
+			<label for="laa_infographic_mode"><strong>Инфографика</strong></label><br>
+			<select id="laa_infographic_mode" name="laa_infographic_mode" style="width:100%">
+				<option value="inherit" <?php selected( $m['infographic_mode'], 'inherit' ); ?>>Как в настройках плагина</option>
+				<option value="on" <?php selected( $m['infographic_mode'], 'on' ); ?>>Делать</option>
+				<option value="off" <?php selected( $m['infographic_mode'], 'off' ); ?>>Не делать</option>
+			</select>
+		</p>
+		<p>
+			<label for="laa_infographic_preset">Пресет</label><br>
+			<select id="laa_infographic_preset" name="laa_infographic_preset" style="width:100%">
+				<option value="">По умолчанию</option>
+				<?php foreach ( LAA_Infographic_Presets::get_all() as $id => $item ) : ?>
+					<option value="<?php echo esc_attr( $id ); ?>" <?php selected( $m['infographic_preset'], $id ); ?>><?php echo esc_html( $item['name'] ); ?></option>
+				<?php endforeach; ?>
+			</select>
+		</p>
+		<p>
+			<label for="laa_infographic_points">Пунктов</label>
+			<input type="number" id="laa_infographic_points" name="laa_infographic_points" min="3" max="12" value="<?php echo esc_attr( $m['infographic_points'] ); ?>" style="width:70px">
+		</p>
+		<p>
+			<label for="laa_infographic_position">Место в статье</label><br>
+			<select id="laa_infographic_position" name="laa_infographic_position" style="width:100%">
+				<option value="after_takeaways" <?php selected( $m['infographic_position'], 'after_takeaways' ); ?>>После блока «Коротко»</option>
+				<option value="before_faq" <?php selected( $m['infographic_position'], 'before_faq' ); ?>>Перед «Частые вопросы»</option>
+				<option value="end" <?php selected( $m['infographic_position'], 'end' ); ?>>В конце статьи</option>
+			</select>
+		</p>
+		<p>
+			<label><input type="checkbox" name="laa_infographic_as_thumbnail" value="1" <?php checked( $m['infographic_as_thumbnail'] ); ?>> ставить её же миниатюрой записи</label>
+		</p>
+		<p class="description">Когда инфографика становится миниатюрой, обычная обложка не генерируется — её всё равно пришлось бы перезаписать.</p>
+		<p><a href="<?php echo esc_url( admin_url( 'admin.php?page=' . LAA_Admin::INFOGRAPHIC_SLUG ) ); ?>">Настроить инфографику →</a></p>
 		<?php
 	}
 

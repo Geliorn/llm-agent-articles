@@ -63,6 +63,10 @@ class LAA_Settings {
 			// the queue, H2/H3, FAQ question). Not an SEO target — the prompts
 			// ask for ~70 chars — but a guard: nothing in the code used to stop
 			// a model from returning a 400-character heading.
+			// ----------------------------------------------------- infographic
+			'infographic_enabled'       => 0,
+			'infographic_default_preset' => 'grid',
+
 			'title_max_chars'       => 250,
 			// The SERP shows ~60 characters, so meta_title gets its own, much
 			// tighter limit — the H1 on the page stays full and meaningful.
