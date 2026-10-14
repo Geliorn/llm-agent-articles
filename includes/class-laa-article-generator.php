@@ -233,6 +233,14 @@ PROMPT;
 		if ( $meta['extra_prompt'] ) {
 			$parts[] = 'Дополнительные указания: ' . $meta['extra_prompt'];
 		}
+		// A site-wide tag vocabulary, when some plugin provides one (the GitHub
+		// repo collector does): tags are then picked from it instead of invented.
+		if ( 'none' !== ( $meta['tags_mode'] ?? 'llm' ) ) {
+			$vocabulary = (string) apply_filters( 'laa_tag_vocabulary', '' );
+			if ( '' !== trim( $vocabulary ) ) {
+				$parts[] = $vocabulary;
+			}
+		}
 
 		return $client->json( self::OUTLINE_SYSTEM, implode( "\n", $parts ), 3000, (float) LAA_Settings::get( 'llm_temperature_plan', 0.7 ) );
 	}

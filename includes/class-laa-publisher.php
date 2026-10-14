@@ -240,6 +240,18 @@ class LAA_Publisher {
 			return;
 		}
 
+		// Extension point for a site-wide tag vocabulary: a subscriber returns
+		// the term ids to attach (aliases resolved, unknowns handled its way).
+		// Nobody subscribed → null → the behaviour below, unchanged.
+		$resolved = apply_filters( 'laa_resolve_tags', null, $article['tags'], $post_id, $meta['tags_mode'] );
+		if ( is_array( $resolved ) ) {
+			$ids = array_values( array_filter( array_map( 'intval', $resolved ) ) );
+			if ( $ids ) {
+				wp_set_object_terms( $post_id, $ids, 'post_tag', true );
+			}
+			return;
+		}
+
 		if ( 'existing_only' === $meta['tags_mode'] ) {
 			// Keeps the tag vocabulary from growing a long tail of one-off
 			// synonyms the model invents per article.
