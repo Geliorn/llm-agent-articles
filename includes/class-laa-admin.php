@@ -458,6 +458,14 @@ class LAA_Admin {
 						</select>
 						<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::INFOGRAPHIC_SLUG ) ); ?>">Настроить →</a>
 					</td></tr>
+					<tr><th>Куда ставить</th><td>
+						<select name="infographic_placement">
+							<?php foreach ( LAA_Settings::infographic_placements() as $value => $label ) : ?>
+								<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $s['infographic_placement'], $value ); ?>><?php echo esc_html( $label ); ?></option>
+							<?php endforeach; ?>
+						</select>
+						<p class="description">Обложкой — инфографика становится миниатюрой записи, обычная обложка не генерируется, в текст картинка не вставляется. В начале или в конце — картинка в тексте, обложка делается как обычно. Контент-план может переопределить.</p>
+					</td></tr>
 				</table>
 
 				<h2>Публикация и проверка</h2>
@@ -1201,7 +1209,7 @@ class LAA_Admin {
 			'library_source', 'library_ids', 'library_term', 'library_folder', 'library_strategy',
 			'seo_plugin', 'min_words_hard', 'min_sections_hard', 'caption_font_path',
 			'title_max_chars', 'meta_title_max_chars', 'title_rewrite_attempts',
-			'infographic_default_preset',
+			'infographic_default_preset', 'infographic_placement',
 		);
 
 		$values = array();

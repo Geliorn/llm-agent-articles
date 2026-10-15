@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AI Article Writer
  * Description: Контент-конвейер: по заданной теме предлагает список тем статей, человек его согласовывает, дальше плагин по расписанию пишет статью по SEO-правилам (структура заголовков, абзацы, списки, таблицы, цитаты, FAQ), делает обложку (генерация или библиотека + наложение) и публикует. Самодостаточен — свои типы записей, своя очередь, без ACF/CPT UI.
- * Version: 0.3.1
+ * Version: 0.4.0
  * Author: llm-agent.ru
  * Text Domain: laa
  */
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'LAA_VERSION', '0.3.1' );
+define( 'LAA_VERSION', '0.4.0' );
 define( 'LAA_PLUGIN_FILE', __FILE__ );
 define( 'LAA_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'LAA_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -29,6 +29,7 @@ require_once LAA_PLUGIN_DIR . 'includes/class-laa-article-builder.php';
 require_once LAA_PLUGIN_DIR . 'includes/class-laa-title-shortener.php';
 require_once LAA_PLUGIN_DIR . 'includes/class-laa-seo-checker.php';
 require_once LAA_PLUGIN_DIR . 'includes/class-laa-seo.php';
+require_once LAA_PLUGIN_DIR . 'includes/class-laa-faq.php';
 require_once LAA_PLUGIN_DIR . 'includes/class-laa-links.php';
 require_once LAA_PLUGIN_DIR . 'includes/class-laa-image-presets.php';
 require_once LAA_PLUGIN_DIR . 'includes/class-laa-image-composer.php';
@@ -58,6 +59,7 @@ function laa_boot() {
 	LAA_Log::init();
 	LAA_Scheduler::init();
 	LAA_Admin::init();
+	LAA_FAQ::init();
 }
 add_action( 'plugins_loaded', 'laa_boot' );
 

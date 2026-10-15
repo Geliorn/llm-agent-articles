@@ -230,7 +230,8 @@ class LAA_CLI {
 	}
 
 	/**
-	 * Build an infographic for an article that already exists and insert it.
+	 * Build an infographic for an article that already exists. With placement
+	 * "обложкой" (plan or plugin setting) it also becomes the post thumbnail.
 	 *
 	 * ## OPTIONS
 	 * <post>...
@@ -290,7 +291,14 @@ class LAA_CLI {
 			}
 
 			WP_CLI::success( sprintf( 'Запись #%d: инфографика #%d, пунктов %d', $post_id, $made['attachment_id'], count( $made['points'] ) ) );
-			WP_CLI::line( '  вставьте её в текст вручную или перегенерируйте статью — эта команда только собирает картинку' );
+
+			if ( 'cover' === LAA_Publisher::infographic_placement( $meta ) ) {
+				$old_thumbnail = (int) get_post_thumbnail_id( $post_id );
+				set_post_thumbnail( $post_id, $made['attachment_id'] );
+				WP_CLI::line( '  поставлена миниатюрой записи' . ( $old_thumbnail ? " (старая обложка #{$old_thumbnail} осталась в медиабиблиотеке)" : '' ) );
+			} else {
+				WP_CLI::line( '  место — в тексте статьи: вставьте её вручную или перегенерируйте статью, эта команда только собирает картинку' );
+			}
 		}
 	}
 

@@ -1,0 +1,45 @@
+/* Article FAQ — core/details blocks with class laa-faq-item (see
+ * LAA_Article_Builder::faq_item()). Native <details>: works without this
+ * file too, this only replaces the browser triangle with a +/× marker and
+ * draws a divider between questions. Colours follow the theme. */
+.wp-block-details.laa-faq-item {
+	margin: 0;
+	padding: 0;
+	border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+}
+.wp-block-details.laa-faq-item > summary {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 14px 0;
+	font-weight: 600;
+	cursor: pointer;
+	list-style: none;
+}
+.wp-block-details.laa-faq-item > summary::-webkit-details-marker {
+	display: none;
+}
+.wp-block-details.laa-faq-item > summary::after {
+	content: "+";
+	flex: none;
+	font-size: 1.25em;
+	line-height: 1;
+	color: var(--wp--preset--color--accent, currentColor);
+	transition: transform 0.15s ease;
+}
+.wp-block-details.laa-faq-item[open] > summary::after {
+	transform: rotate(45deg);
+}
+.wp-block-details.laa-faq-item > summary:hover {
+	color: var(--wp--preset--color--accent, inherit);
+}
+.wp-block-details.laa-faq-item > summary:focus-visible {
+	outline: 2px solid currentColor;
+	outline-offset: 2px;
+	border-radius: 3px;
+}
+.wp-block-details.laa-faq-item > :not(summary) {
+	margin-top: 0;
+	padding-bottom: 16px;
+}

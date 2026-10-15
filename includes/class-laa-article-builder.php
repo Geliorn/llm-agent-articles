@@ -16,8 +16,9 @@ class LAA_Article_Builder {
 
 	/**
 	 * Marker the publisher swaps for the infographic block once the image
-	 * exists. Put in during assembly because only the builder knows where the
-	 * «Коротко» block and the FAQ actually ended up; always removed afterwards,
+	 * exists — only when the infographic goes into the text (placement
+	 * 'start' = right after the lead, 'end' = after everything, FAQ included);
+	 * as a cover it never enters the content. Always removed afterwards,
 	 * whether or not an infographic was made.
 	 */
 	const INFOGRAPHIC_MARKER = '<!--laa:infographic-->';
@@ -50,9 +51,17 @@ class LAA_Article_Builder {
 		$toc      = array();
 		$sections = array();
 
+		$placement = ! empty( $meta['infographic_wanted'] ) ? (string) ( $meta['infographic_placement'] ?? 'cover' ) : 'cover';
+
 		// Lead paragraph — the direct answer, before anything else.
 		if ( ! empty( $article['lead'] ) ) {
 			$blocks[] = self::paragraph( esc_html( $article['lead'] ), 'has-large-font-size' );
+		}
+
+		// "В начале статьи" — the picture right under the lead, above «Коротко»
+		// and the table of contents.
+		if ( 'start' === $placement ) {
+			$blocks[] = self::INFOGRAPHIC_MARKER;
 		}
 
 		// "Коротко" — doubles as the summary block and as the source for the
@@ -64,12 +73,6 @@ class LAA_Article_Builder {
 				'text'   => 'Коротко',
 			);
 			$blocks[] = self::list_block( array_map( 'esc_html', $article['takeaways'] ), false );
-
-			if ( ! empty( $meta['infographic_wanted'] ) && 'after_takeaways' === ( $meta['infographic_position'] ?? '' ) ) {
-				// Deferred: the table of contents is spliced in at this same
-				// index later, and navigation should sit above the picture.
-				$marker_after_takeaways = true;
-			}
 		}
 
 		// The TOC is injected after the whole body is known (anchors first),
@@ -78,7 +81,6 @@ class LAA_Article_Builder {
 		if ( $meta['require_toc'] ) {
 			$toc_placeholder = count( $blocks );
 		}
-		$marker_position = isset( $marker_after_takeaways ) ? count( $blocks ) : null;
 
 		$used_anchors = array( 'korotko' => true );
 
@@ -100,18 +102,14 @@ class LAA_Article_Builder {
 		}
 
 		if ( ! empty( $article['faq'] ) ) {
-			if ( ! empty( $meta['infographic_wanted'] ) && 'before_faq' === ( $meta['infographic_position'] ?? '' ) ) {
-				$blocks[] = self::INFOGRAPHIC_MARKER;
-			}
 			$faq_anchor = self::unique_anchor( 'Частые вопросы', $used_anchors );
 			$blocks[]   = self::heading( 'Частые вопросы', 2, $faq_anchor );
 			$toc[]      = array(
 				'anchor' => $faq_anchor,
 				'text'   => 'Частые вопросы',
 			);
-			foreach ( $article['faq'] as $item ) {
-				$blocks[] = self::heading( esc_html( $item['q'] ), 3, self::unique_anchor( $item['q'], $used_anchors ) );
-				$blocks[] = self::paragraph( esc_html( $item['a'] ) );
+			foreach ( array_values( $article['faq'] ) as $i => $item ) {
+				$blocks[] = self::faq_item( $item['q'], $item['a'], 0 === $i );
 			}
 		}
 
@@ -126,18 +124,12 @@ class LAA_Article_Builder {
 			$insert[] = self::list_block( $items, false );
 		}
 
-		if ( null !== $marker_position ) {
-			$insert[] = self::INFOGRAPHIC_MARKER;
-		}
-
 		if ( $insert ) {
-			array_splice( $blocks, null !== $toc_placeholder ? $toc_placeholder : $marker_position, 0, $insert );
+			array_splice( $blocks, $toc_placeholder, 0, $insert );
 		}
 
-		// Anything that asked for a marker but never got one (no takeaways, no
-		// FAQ, or position=end) gets it at the end, so the publisher always has
-		// exactly one place to put the image.
-		if ( ! empty( $meta['infographic_wanted'] ) && ! in_array( self::INFOGRAPHIC_MARKER, $blocks, true ) ) {
+		// "В конце статьи" — after everything, the FAQ included.
+		if ( 'end' === $placement ) {
 			$blocks[] = self::INFOGRAPHIC_MARKER;
 		}
 
@@ -148,6 +140,25 @@ class LAA_Article_Builder {
 			'toc'      => $toc,
 			'sections' => $sections,
 		);
+	}
+
+	/**
+	 * One FAQ question as a core/details block — a native <details>/<summary>
+	 * accordion, no JS. Collapsed answers stay in the HTML, so LAA_Schema can
+	 * mark up exactly the text that is on the page; the first one starts open.
+	 * Class laa-faq-item is how LAA_Schema finds them. core/details needs
+	 * WordPress 6.3+ in the editor; the saved HTML renders on any version.
+	 */
+	public static function faq_item( $question, $answer, $open = false ) {
+		$attrs = array( 'className' => 'laa-faq-item' );
+		if ( $open ) {
+			$attrs['showContent'] = true;
+		}
+		return '<!-- wp:details ' . wp_json_encode( $attrs, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) . " -->\n"
+			. '<details class="wp-block-details laa-faq-item"' . ( $open ? ' open' : '' ) . '><summary>' . esc_html( $question ) . "</summary>\n"
+			. self::paragraph( esc_html( $answer ) )
+			. "</details>\n"
+			. '<!-- /wp:details -->';
 	}
 
 	// ------------------------------------------------------------- HTML -> blocks

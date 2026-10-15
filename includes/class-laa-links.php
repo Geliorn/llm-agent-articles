@@ -146,7 +146,7 @@ class LAA_Links {
 		return null;
 	}
 
-	/** True when the offset sits inside a tag, a block comment or an <a>…</a>. */
+	/** True when the offset sits inside a tag, a block comment, an <a>…</a>, a heading or a <summary>. */
 	private static function inside_markup( $content, $pos ) {
 		$before = substr( $content, 0, $pos );
 
@@ -166,6 +166,14 @@ class LAA_Links {
 		$last_heading_open  = max( (int) strripos( $before, '<h2' ), (int) strripos( $before, '<h3' ), (int) strripos( $before, '<h4' ) );
 		$last_heading_close = max( (int) strripos( $before, '</h2>' ), (int) strripos( $before, '</h3>' ), (int) strripos( $before, '</h4>' ) );
 		if ( $last_heading_open > 0 && $last_heading_open > $last_heading_close ) {
+			return true;
+		}
+
+		// FAQ questions (<summary> of the accordion): a link there would
+		// navigate away instead of opening the answer.
+		$open_summary  = strripos( $before, '<summary' );
+		$close_summary = strripos( $before, '</summary>' );
+		if ( false !== $open_summary && ( false === $close_summary || $open_summary > $close_summary ) ) {
 			return true;
 		}
 

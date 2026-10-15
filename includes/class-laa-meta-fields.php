@@ -67,8 +67,8 @@ class LAA_Meta_Fields {
 			'infographic_mode'          => array( 'text', 'inherit' ),
 			'infographic_preset'        => array( 'text', '' ),
 			'infographic_points'        => array( 'int', 6 ),
-			'infographic_as_thumbnail'  => array( 'bool', 1 ),
-			'infographic_position'      => array( 'text', 'after_takeaways' ),
+			// inherit | cover | start | end — see LAA_Publisher::infographic_placement().
+			'infographic_placement'     => array( 'text', 'inherit' ),
 
 			// runtime
 			'last_run_at'               => array( 'int', 0 ),
@@ -466,17 +466,15 @@ class LAA_Meta_Fields {
 			<input type="number" id="laa_infographic_points" name="laa_infographic_points" min="3" max="12" value="<?php echo esc_attr( $m['infographic_points'] ); ?>" style="width:70px">
 		</p>
 		<p>
-			<label for="laa_infographic_position">Место в статье</label><br>
-			<select id="laa_infographic_position" name="laa_infographic_position" style="width:100%">
-				<option value="after_takeaways" <?php selected( $m['infographic_position'], 'after_takeaways' ); ?>>После блока «Коротко»</option>
-				<option value="before_faq" <?php selected( $m['infographic_position'], 'before_faq' ); ?>>Перед «Частые вопросы»</option>
-				<option value="end" <?php selected( $m['infographic_position'], 'end' ); ?>>В конце статьи</option>
+			<label for="laa_infographic_placement">Куда ставить</label><br>
+			<select id="laa_infographic_placement" name="laa_infographic_placement" style="width:100%">
+				<option value="inherit" <?php selected( $m['infographic_placement'], 'inherit' ); ?>>Как в настройках плагина</option>
+				<?php foreach ( LAA_Settings::infographic_placements() as $value => $label ) : ?>
+					<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $m['infographic_placement'], $value ); ?>><?php echo esc_html( $label ); ?></option>
+				<?php endforeach; ?>
 			</select>
 		</p>
-		<p>
-			<label><input type="checkbox" name="laa_infographic_as_thumbnail" value="1" <?php checked( $m['infographic_as_thumbnail'] ); ?>> ставить её же миниатюрой записи</label>
-		</p>
-		<p class="description">Когда инфографика становится миниатюрой, обычная обложка не генерируется — её всё равно пришлось бы перезаписать.</p>
+		<p class="description">Обложкой — инфографика становится миниатюрой записи вместо обычной обложки, в текст не вставляется. В начале или в конце — картинка в тексте, обложка делается как обычно.</p>
 		<p><a href="<?php echo esc_url( admin_url( 'admin.php?page=' . LAA_Admin::INFOGRAPHIC_SLUG ) ); ?>">Настроить инфографику →</a></p>
 		<?php
 	}

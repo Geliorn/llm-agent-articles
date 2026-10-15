@@ -66,6 +66,8 @@ class LAA_Settings {
 			// ----------------------------------------------------- infographic
 			'infographic_enabled'       => 0,
 			'infographic_default_preset' => 'grid',
+			// cover | start | end — a plan can override it (LAA_Publisher::infographic_placement()).
+			'infographic_placement'     => 'cover',
 
 			'title_max_chars'       => 250,
 			// The SERP shows ~60 characters, so meta_title gets its own, much
@@ -88,6 +90,15 @@ class LAA_Settings {
 	public static function get_all() {
 		$stored = get_option( self::OPTION_KEY, array() );
 		return wp_parse_args( is_array( $stored ) ? $stored : array(), self::defaults() );
+	}
+
+	/** Infographic placements for the settings screen and the plan box. */
+	public static function infographic_placements() {
+		return array(
+			'cover' => 'Обложкой (вместо обычной обложки)',
+			'start' => 'В начале статьи, после лида',
+			'end'   => 'В конце статьи, после FAQ',
+		);
 	}
 
 	public static function get( $key, $default = null ) {

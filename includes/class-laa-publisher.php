@@ -27,7 +27,8 @@ class LAA_Publisher {
 
 		// The builder needs to know whether to leave a slot for the infographic
 		// before it assembles anything.
-		$meta['infographic_wanted'] = self::infographic_wanted( $meta );
+		$meta['infographic_wanted']    = self::infographic_wanted( $meta );
+		$meta['infographic_placement'] = self::infographic_placement( $meta );
 
 		$built   = LAA_Article_Builder::build( $article, $meta );
 		$content = $built['content'];
@@ -120,9 +121,25 @@ class LAA_Publisher {
 	}
 
 	/**
-	 * Builds the infographic, swaps it into the post content in place of the
-	 * marker and optionally makes it the thumbnail. The marker is removed in
-	 * every path, including failure — it must never reach the page.
+	 * Where the infographic goes: 'cover' — it becomes the post thumbnail
+	 * instead of the regular cover and stays out of the text (default);
+	 * 'start' / 'end' — into the text, right after the lead or at the very
+	 * end, and the regular cover is made as usual. The plan can override the
+	 * plugin-wide setting.
+	 */
+	public static function infographic_placement( array $meta ) {
+		$placement = (string) ( $meta['infographic_placement'] ?? 'inherit' );
+		if ( 'inherit' === $placement || '' === $placement ) {
+			$placement = (string) LAA_Settings::get( 'infographic_placement', 'cover' );
+		}
+		return in_array( $placement, array( 'cover', 'start', 'end' ), true ) ? $placement : 'cover';
+	}
+
+	/**
+	 * Builds the infographic, then either makes it the thumbnail (placement
+	 * 'cover') or swaps it into the post content in place of the marker.
+	 * The marker is removed in every path, including failure — it must never
+	 * reach the page.
 	 *
 	 * @return array{ok:bool,is_thumbnail:bool,attachment_id:int}
 	 */
@@ -151,11 +168,12 @@ class LAA_Publisher {
 			return $result;
 		}
 
-		self::insert_infographic_block( $post_id, $made['attachment_id'] );
-
-		if ( ! empty( $meta['infographic_as_thumbnail'] ) ) {
+		if ( 'cover' === self::infographic_placement( $meta ) ) {
+			self::strip_marker( $post_id );
 			set_post_thumbnail( $post_id, $made['attachment_id'] );
 			$result['is_thumbnail'] = true;
+		} else {
+			self::insert_infographic_block( $post_id, $made['attachment_id'] );
 		}
 
 		LAA_Log::add( sprintf( 'Статья #%d: инфографика #%d, пунктов %d', $post_id, $made['attachment_id'], count( $made['points'] ) ) );
