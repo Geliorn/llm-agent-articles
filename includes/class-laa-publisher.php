@@ -82,7 +82,13 @@ class LAA_Publisher {
 
 		LAA_SEO::apply( $post_id, $article['meta_title'], $article['meta_description'] );
 
-		$infographic = self::attach_infographic( $post_id, $article, $meta, $report );
+		$warnings_before = count( $report['warnings'] );
+		$infographic     = self::attach_infographic( $post_id, $article, $meta, $report );
+		// The report was stored before the infographic existed — its notes
+		// (and the cover-proportions warning) belong in the checklist too.
+		if ( count( $report['warnings'] ) !== $warnings_before ) {
+			update_post_meta( $post_id, '_laa_seo_report', wp_json_encode( $report, JSON_UNESCAPED_UNICODE ) );
+		}
 
 		// A cover would only be overwritten a moment later, so skip it when the
 		// infographic has already claimed the thumbnail.
@@ -172,6 +178,10 @@ class LAA_Publisher {
 			self::strip_marker( $post_id );
 			set_post_thumbnail( $post_id, $made['attachment_id'] );
 			$result['is_thumbnail'] = true;
+			$ratio_note = self::cover_ratio_note( $meta );
+			if ( '' !== $ratio_note ) {
+				$report['warnings'][] = $ratio_note;
+			}
 		} else {
 			self::insert_infographic_block( $post_id, $made['attachment_id'] );
 		}
@@ -182,6 +192,32 @@ class LAA_Publisher {
 		$result['attachment_id'] = (int) $made['attachment_id'];
 
 		return $result;
+	}
+
+	/**
+	 * As a thumbnail the infographic goes through the same theme crop as a
+	 * cover (aspect-ratio + object-fit:cover — the 1200×630 bug of 0.2.x), so
+	 * its canvas must have the cover's proportions, which are the ones tuned to
+	 * the theme. The built-in presets are 1200×800 like the cover; this only
+	 * catches a preset whose size was changed. '' when the proportions match.
+	 */
+	public static function cover_ratio_note( array $meta ) {
+		$info  = LAA_Infographic_Presets::get( ( $meta['infographic_preset'] ?? '' ) ?: LAA_Settings::get( 'infographic_default_preset', 'grid' ) );
+		$cover = LAA_Image_Presets::get( ( $meta['image_preset'] ?? '' ) ?: LAA_Settings::get( 'default_preset', 'default' ) );
+		$iw    = (int) $info['width'];
+		$ih    = (int) $info['height'];
+		$cw    = (int) $cover['width'];
+		$ch    = (int) $cover['height'];
+		if ( $ih < 1 || $ch < 1 || abs( $iw / $ih - $cw / $ch ) < 0.02 ) {
+			return '';
+		}
+		return sprintf(
+			'Инфографика стоит обложкой, но её пропорции %d×%d не совпадают с пропорциями обложки %d×%d — тема может обрезать края. Поменяйте размер в пресете инфографики.',
+			$iw,
+			$ih,
+			$cw,
+			$ch
+		);
 	}
 
 	private static function insert_infographic_block( $post_id, $attachment_id ) {

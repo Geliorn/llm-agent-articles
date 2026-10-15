@@ -16,6 +16,10 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class LAA_Infographic_Service {
 
+	/** Attachment meta marking an image as an infographic (not a regular cover). */
+	const ATTACHMENT_FLAG = '_laa_infographic';
+
+
 	const MIN_POINTS = 3;
 
 	/**
@@ -70,6 +74,8 @@ class LAA_Infographic_Service {
 		if ( ! $attachment_id ) {
 			return self::result( false, 0, 'Не удалось сохранить инфографику в медиабиблиотеку', $notes );
 		}
+		// Lets `wp laa recover` tell an infographic thumbnail from a cover.
+		update_post_meta( $attachment_id, self::ATTACHMENT_FLAG, 1 );
 
 		return array(
 			'ok'            => true,

@@ -175,6 +175,10 @@ class LAA_CLI {
 	 * [--preset=<id>]
 	 * : Override the preset the plan would use.
 	 *
+	 * [--force]
+	 * : Replace the thumbnail even when it is the article's infographic
+	 *   (placement "обложкой") — skipped by default.
+	 *
 	 * ## EXAMPLES
 	 *     wp laa recover 692
 	 *     wp laa recover 692 701 --preset=default
@@ -212,6 +216,13 @@ class LAA_CLI {
 			}
 
 			$old_thumbnail = (int) get_post_thumbnail_id( $post_id );
+
+			// With placement "обложкой" the thumbnail IS the infographic; a
+			// regular cover would silently replace it.
+			if ( $old_thumbnail && get_post_meta( $old_thumbnail, LAA_Infographic_Service::ATTACHMENT_FLAG, true ) && ! isset( $assoc_args['force'] ) ) {
+				WP_CLI::warning( "Запись #{$post_id}: миниатюра — инфографика (#{$old_thumbnail}), пропускаю. Перерисовать её: wp laa infographic {$post_id}; заменить обычной обложкой: --force." );
+				continue;
+			}
 
 			$result = LAA_Image_Service::attach_cover( $post_id, array( 'title' => $post->post_title ), $meta );
 
