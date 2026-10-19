@@ -20,14 +20,22 @@ class LAA_Infographic_Service {
 	const ATTACHMENT_FLAG = '_laa_infographic';
 
 
+	/** Post meta: theme palette slug of the article's infographic (rotating presets). */
+	const META_PALETTE = '_laa_palette';
+
+	/** Attachment meta: utm_content label (dark-magma / fixed-grid), read by wp-pinfeed. */
+	const ATTACHMENT_UTM = '_laa_utm';
+
 	const MIN_POINTS = 3;
 
 	/**
 	 * @return array{ok:bool,attachment_id:int,error:string,notes:array,points:array}
 	 */
-	public static function create_for_post( $post_id, array $article, array $meta ) {
+	public static function create_for_post( $post_id, array $article, array $meta, $recolor = false ) {
 		$preset_id = $meta['infographic_preset'] ?: LAA_Settings::get( 'infographic_default_preset', 'grid' );
 		$preset    = LAA_Infographic_Presets::get( $preset_id );
+
+		list( $preset, $palette ) = self::colourise( $preset, $post_id, $recolor );
 
 		$count = (int) $meta['infographic_points'];
 		if ( $count < self::MIN_POINTS ) {
@@ -76,6 +84,13 @@ class LAA_Infographic_Service {
 		}
 		// Lets `wp laa recover` tell an infographic thumbnail from a cover.
 		update_post_meta( $attachment_id, self::ATTACHMENT_FLAG, 1 );
+		update_post_meta( $attachment_id, self::ATTACHMENT_UTM, '' !== $palette ? LAA_Theme_Palette::utm_label( $palette ) : 'fixed-' . $preset_id );
+		if ( '' !== $palette && 'rotate' === $preset['palette_source'] ) {
+			update_post_meta( $post_id, self::META_PALETTE, $palette );
+		}
+		if ( '' !== $palette ) {
+			$notes[] = 'Цвета темы: ' . LAA_Theme_Palette::get( $palette )['title'];
+		}
 
 		return array(
 			'ok'            => true,
@@ -84,6 +99,24 @@ class LAA_Infographic_Service {
 			'notes'         => $notes,
 			'points'        => $rendered['points'],
 		);
+	}
+
+	/**
+	 * Theme colours for a preset that asks for them. A rotating preset gives a
+	 * new article the next palette and a rebuilt one the palette it had, unless
+	 * $recolor asks for the next one.
+	 *
+	 * @param bool $advance false for previews: don't move the round-robin cursor.
+	 * @return array{0:array,1:string} preset, palette slug ('' = own colours)
+	 */
+	public static function colourise( array $preset, $post_id, $recolor = false, $advance = true ) {
+		$stored = $post_id ? (string) get_post_meta( $post_id, self::META_PALETTE, true ) : '';
+		$slug   = LAA_Theme_Palette::choose( $preset['palette_source'] ?? 'preset', $stored, $recolor, $advance );
+		$entry  = '' !== $slug ? LAA_Theme_Palette::get( $slug ) : null;
+		if ( ! $entry ) {
+			return array( $preset, '' );
+		}
+		return array( LAA_Theme_Palette::apply( $preset, $entry, $preset['palette_layout'] ?? 'accent' ), $slug );
 	}
 
 	/**

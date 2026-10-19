@@ -147,6 +147,18 @@ OpenAI-совместимый `/v1/images/generations`. Промпт — шаб�
 (самый длинный первым), и только если пунктов осталось меньше трёх — инфографика
 не делается. Обрезки текста на полуслове нет нигде.
 
+**Цвета из темы.** Поле «Цвета» в пресете: *из пресета* (поля формы), *активная
+палитра сайта* или *ротация палитр по картинкам* — палитры берутся из `theme.json`
+активной блочной темы и всех её вариаций стиля (`styles/*.json`). Раскладка:
+*акцентная заливка + светлые плашки* (по умолчанию) или *тёмный холст в цвете темы*.
+Цвета текста подбираются по контрасту (не ниже 4.5:1), размеры и остальное — из
+пресета. Встроенный пресет «Цвета темы (ротация)» — сетка 6 блоков. При ротации
+статья получает следующую по кругу палитру и хранит её в мете `_laa_palette`:
+пересборка (`wp laa infographic <ID>`) рисует в том же цвете, `--recolor` — в
+следующем. На вложение пишется метка `_laa_utm` (`dark-magma`, `light-indigo`,
+для пресета со своими цветами — `fixed-<пресет>`); `wp-pinfeed` подставляет её в
+`utm_content` пинов, так что в Метрике видно, какие цвета кликают лучше.
+
 **Пропорции.** Если инфографика ставится миниатюрой, её полотно должно совпадать
 по пропорциям с тем, что выводит тема (у `agent-catalog` это 3:2) — иначе края
 обрежет, как было с обложками. Дефолт 1200×800 это учитывает.
@@ -194,6 +206,7 @@ wp laa write --topic=<id>
 wp laa list-topics [--plan=<id>] [--status=approved] [--limit=50]
 wp laa preview-image [--preset=default] [--title="..."] [--out=/path/cover.jpg]
 wp laa recover <ID>... [--preset=<id>] [--force]
+wp laa infographic <ID>... [--preset=<id>] [--points=<n>] [--recolor]
 ```
 
 ## Куда публикуются статьи
@@ -217,9 +230,11 @@ add_filter( 'laa_target_post_type_choices', function ( $types ) {
 
 - CPT `laa_plan` — контент-планы (не публичный, только админка).
 - Таблица `{prefix}laa_topics` — очередь тем.
-- Опции `laa_settings`, `laa_image_presets`, `laa_log`, `laa_db_version`.
+- Опции `laa_settings`, `laa_image_presets`, `laa_infographic_presets`, `laa_log`,
+  `laa_db_version`, `laa_palette_cursor`, `laa_infographic_theme_preset_added`.
 - Мета на созданной статье: `_laa_plan_id`, `_laa_topic_id`, `_laa_generated`,
-  `_laa_provider`, `_laa_primary_keyword`, `_laa_seo_report`.
+  `_laa_provider`, `_laa_primary_keyword`, `_laa_seo_report`, `_laa_palette`.
+  На вложении-инфографике: `_laa_infographic`, `_laa_utm`.
 
 Деинсталляция удаляет таблицу и опции. Созданные записи и медиафайлы остаются —
 это контент сайта, а не данные плагина.

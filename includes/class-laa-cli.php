@@ -254,8 +254,13 @@ class LAA_CLI {
 	 * [--points=<n>]
 	 * : How many theses to ask for.
 	 *
+	 * [--recolor]
+	 * : With a rotating theme-colour preset, take the next palette instead of
+	 *   the one the article already has.
+	 *
 	 * ## EXAMPLES
 	 *     wp laa infographic 692 --points=6
+	 *     wp laa infographic 692 --recolor
 	 */
 	public function infographic( $args, $assoc_args ) {
 		if ( empty( $args ) ) {
@@ -290,7 +295,7 @@ class LAA_CLI {
 				'sections'  => self::sections_of( $post->post_content ),
 			);
 
-			$made = LAA_Infographic_Service::create_for_post( $post_id, $article, $meta );
+			$made = LAA_Infographic_Service::create_for_post( $post_id, $article, $meta, isset( $assoc_args['recolor'] ) );
 
 			foreach ( $made['notes'] as $note ) {
 				WP_CLI::line( '  ' . $note );

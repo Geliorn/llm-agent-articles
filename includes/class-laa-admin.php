@@ -898,6 +898,19 @@ class LAA_Admin {
 				<p class="description">Если инфографика ставится миниатюрой, пропорции должны совпадать с темой — иначе её обрежет, как было с обложкой. Тема сейчас: <?php echo esc_html( self::theme_featured_ratio() ); ?>.</p>
 			</td></tr>
 			<tr><th>Поля</th><td><input type="number" name="padding" min="0" max="300" value="<?php echo esc_attr( $p['padding'] ); ?>" style="width:80px"> px</td></tr>
+			<tr><th>Цвета</th><td>
+				<select name="palette_source">
+					<?php foreach ( LAA_Theme_Palette::sources() as $value => $label ) : ?>
+						<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $p['palette_source'], $value ); ?>><?php echo esc_html( $label ); ?></option>
+					<?php endforeach; ?>
+				</select>
+				<select name="palette_layout">
+					<?php foreach ( LAA_Theme_Palette::layouts() as $value => $label ) : ?>
+						<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $p['palette_layout'], $value ); ?>><?php echo esc_html( $label ); ?></option>
+					<?php endforeach; ?>
+				</select>
+				<p class="description">«Из темы» берёт палитры активной темы и всех её вариаций стиля; цвета ниже тогда не используются, текст подбирается по контрасту. При ротации каждая статья получает следующую палитру и сохраняет её при пересборке.</p>
+			</td></tr>
 			<tr><th>Формат</th><td>
 				<select name="format"><?php self::options( array( 'jpg' => 'JPEG', 'webp' => 'WebP', 'png' => 'PNG' ), $p['format'] ); ?></select>
 				качество <input type="number" name="quality" min="1" max="100" value="<?php echo esc_attr( $p['quality'] ); ?>" style="width:70px">
@@ -1139,6 +1152,9 @@ class LAA_Admin {
 			$background = $source['path'] ?: null;
 		}
 
+		// Theme colours as the next article would get them, without claiming a palette.
+		list( $preset, $palette ) = LAA_Infographic_Service::colourise( $preset, 0, false, false );
+
 		$tmp    = LAA_Image_Service::temp_path( LAA_Image_Composer::extension_for( $preset['format'] ) );
 		$result = LAA_Infographic_Composer::compose( $preset, $points, $title, $background, $tmp );
 
@@ -1150,6 +1166,9 @@ class LAA_Admin {
 		@unlink( $tmp ); // phpcs:ignore
 
 		$notice = sprintf( 'Кегль текста: %d px.', $result['text_size'] );
+		if ( '' !== $palette ) {
+			$notice .= sprintf( ' Цвета темы: %s (utm_content=%s).', LAA_Theme_Palette::get( $palette )['title'], LAA_Theme_Palette::utm_label( $palette ) );
+		}
 		if ( ! empty( $result['overflow'] ) ) {
 			$parts = array();
 			foreach ( $result['overflow'] as $item ) {

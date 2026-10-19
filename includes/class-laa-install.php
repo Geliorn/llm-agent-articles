@@ -127,5 +127,9 @@ class LAA_Install {
 		delete_option( LAA_Settings::OPTION_KEY );
 		delete_option( LAA_Image_Presets::OPTION_KEY );
 		delete_option( LAA_Log::OPTION_KEY );
+		// Literal keys: uninstall.php doesn't load the infographic classes.
+		delete_option( 'laa_infographic_presets' );
+		delete_option( 'laa_infographic_theme_preset_added' );
+		delete_option( 'laa_palette_cursor' );
 	}
 }

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AI Article Writer
  * Description: Контент-конвейер: по заданной теме предлагает список тем статей, человек его согласовывает, дальше плагин по расписанию пишет статью по SEO-правилам (структура заголовков, абзацы, списки, таблицы, цитаты, FAQ), делает обложку (генерация или библиотека + наложение) и публикует. Самодостаточен — свои типы записей, своя очередь, без ACF/CPT UI.
- * Version: 0.4.2
+ * Version: 0.5.0
  * Author: llm-agent.ru
  * Text Domain: laa
  */
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'LAA_VERSION', '0.4.2' );
+define( 'LAA_VERSION', '0.5.0' );
 define( 'LAA_PLUGIN_FILE', __FILE__ );
 define( 'LAA_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'LAA_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -36,6 +36,7 @@ require_once LAA_PLUGIN_DIR . 'includes/class-laa-image-composer.php';
 require_once LAA_PLUGIN_DIR . 'includes/class-laa-image-generator.php';
 require_once LAA_PLUGIN_DIR . 'includes/class-laa-image-service.php';
 require_once LAA_PLUGIN_DIR . 'includes/class-laa-infographic-presets.php';
+require_once LAA_PLUGIN_DIR . 'includes/class-laa-theme-palette.php';
 require_once LAA_PLUGIN_DIR . 'includes/class-laa-infographic-composer.php';
 require_once LAA_PLUGIN_DIR . 'includes/class-laa-theses-generator.php';
 require_once LAA_PLUGIN_DIR . 'includes/class-laa-infographic-service.php';

@@ -13,6 +13,9 @@ class LAA_Infographic_Presets {
 
 	const OPTION_KEY = 'laa_infographic_presets';
 
+	/** Set once the theme preset has been offered to an existing site. */
+	const THEME_ADDED = 'laa_infographic_theme_preset_added';
+
 	public static function layouts() {
 		return array(
 			'grid' => 'Сетка блоков',
@@ -41,6 +44,10 @@ class LAA_Infographic_Presets {
 	public static function schema() {
 		return array(
 			'name'                => 'Новый пресет',
+
+			// colours: preset | theme | rotate (LAA_Theme_Palette)
+			'palette_source'      => 'preset',
+			'palette_layout'      => 'accent',
 
 			// canvas — 3:2 by default so the image survives being used as the
 			// post thumbnail, which the theme crops to 3:2 (see README).
@@ -143,6 +150,14 @@ class LAA_Infographic_Presets {
 		$stored = get_option( self::OPTION_KEY, array() );
 		if ( ! is_array( $stored ) || empty( $stored ) ) {
 			return self::seed_presets();
+		}
+		// Sites with presets from before 0.5 get the theme preset once.
+		if ( ! get_option( self::THEME_ADDED ) ) {
+			update_option( self::THEME_ADDED, 1, false );
+			if ( ! isset( $stored['theme'] ) ) {
+				$stored['theme'] = self::theme_preset();
+				update_option( self::OPTION_KEY, $stored );
+			}
 		}
 		$out = array();
 		foreach ( $stored as $id => $preset ) {
@@ -266,6 +281,12 @@ class LAA_Infographic_Presets {
 				case 'background_mode':
 					$out[ $key ] = isset( self::background_modes()[ $value ] ) ? $value : $default;
 					break;
+				case 'palette_source':
+					$out[ $key ] = isset( LAA_Theme_Palette::sources()[ $value ] ) ? $value : $default;
+					break;
+				case 'palette_layout':
+					$out[ $key ] = isset( LAA_Theme_Palette::layouts()[ $value ] ) ? $value : $default;
+					break;
 				case 'fit':
 					$out[ $key ] = isset( LAA_Image_Presets::fit_modes()[ $value ] ) ? $value : $default;
 					break;
@@ -369,6 +390,21 @@ class LAA_Infographic_Presets {
 			'grid'     => $grid,
 			'grid-two' => $grid_two,
 			'list'     => $list,
+			'theme'    => self::theme_preset(),
+		);
+	}
+
+	/** The 6-block grid in the theme's colours, a new palette per article. */
+	public static function theme_preset() {
+		return wp_parse_args(
+			array(
+				'name'           => 'Цвета темы (ротация)',
+				'layout'         => 'grid',
+				'columns'        => 3,
+				'palette_source' => 'rotate',
+				'palette_layout' => 'accent',
+			),
+			self::schema()
 		);
 	}
 }
