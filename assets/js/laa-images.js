@@ -87,3 +87,20 @@
 			} );
 	} );
 }( jQuery ) );
+
+/**
+ * Colour fields -> WordPress colour picker (swatch + palette). Picked by field
+ * name (*_hex, *_color, background, badge_bg) so no input needs extra markup;
+ * only text inputs that already hold a hex (or nothing) are upgraded.
+ */
+( function ( $ ) {
+	'use strict';
+	$( function () {
+		if ( ! $.fn.wpColorPicker ) {
+			return;
+		}
+		$( 'input[type="text"]' ).filter( function () {
+			return /(?:_hex|_color)$|^(?:background|badge_bg)$/.test( this.name ) && /^(#?[0-9a-f]{3,8})?$/i.test( this.value );
+		} ).wpColorPicker();
+	} );
+}( jQuery ) );

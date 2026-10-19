@@ -67,7 +67,8 @@ class LAA_Admin {
 
 		if ( false !== strpos( (string) $hook, self::INFOGRAPHIC_SLUG ) ) {
 			wp_enqueue_media();
-			wp_enqueue_script( 'laa-images', LAA_PLUGIN_URL . 'assets/js/laa-images.js', array( 'jquery' ), LAA_VERSION, true );
+			wp_enqueue_style( 'wp-color-picker' );
+			wp_enqueue_script( 'laa-images', LAA_PLUGIN_URL . 'assets/js/laa-images.js', array( 'jquery', 'wp-color-picker' ), LAA_VERSION, true );
 			wp_localize_script(
 				'laa-images',
 				'laaImages',
@@ -79,7 +80,8 @@ class LAA_Admin {
 			);
 		} elseif ( false !== strpos( (string) $hook, self::IMAGES_SLUG ) ) {
 			wp_enqueue_media();
-			wp_enqueue_script( 'laa-images', LAA_PLUGIN_URL . 'assets/js/laa-images.js', array( 'jquery' ), LAA_VERSION, true );
+			wp_enqueue_style( 'wp-color-picker' );
+			wp_enqueue_script( 'laa-images', LAA_PLUGIN_URL . 'assets/js/laa-images.js', array( 'jquery', 'wp-color-picker' ), LAA_VERSION, true );
 			wp_localize_script(
 				'laa-images',
 				'laaImages',
